@@ -1,0 +1,2957 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת בקרת פיקוח הנדסי - V18.1 (Clean UI & Backup Fix)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Assistant', 'sans-serif'] },
+                    colors: {
+                        darkbg: '#0f172a',
+                        darkcard: '#1e293b',
+                        darkborder: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Chart.js & DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <!-- ExcelJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Cropper.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- PDF.js for text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap');
+        
+        body { font-family: 'Assistant', sans-serif; transition: background-color 0.3s, color 0.3s; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Slides A4 Landscape */
+        .slide-page {
+            width: 1123px;
+            height: 794px;
+            max-height: 794px;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            margin: 0 auto;
+        }
+
+        .pdf-exporting {
+            gap: 0 !important;
+            padding: 0 !important;
+            transform: none !important;
+        }
+        
+        .pdf-exporting * {
+            letter-spacing: 0.1px !important;
+            font-variant-ligatures: none !important;
+        }
+
+        .pdf-exporting .slide-page {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+
+        .cropper-view-box, .cropper-face { border-radius: 8px; }
+        .cropper-line, .cropper-point { background-color: #3b82f6 !important; }
+
+        /* Sidebar Gemini Style */
+        #main-sidebar { 
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            will-change: width;
+        }
+        .sidebar-collapsed { width: 5.5rem !important; } 
+        .sidebar-expanded { width: 18rem !important; } 
+        
+        .sidebar-collapsed .sidebar-text { display: none !important; }
+        .sidebar-collapsed .sidebar-pad { padding-left: 1rem; padding-right: 1rem; }
+        .sidebar-expanded .sidebar-pad { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+        .sidebar-collapsed .nav-btn { justify-content: center; padding-left: 0; padding-right: 0; }
+        .sidebar-expanded .nav-btn { justify-content: flex-start; padding-left: 1rem; padding-right: 1rem; }
+
+        /* --- Dark Mode Comprehensive Overrides --- */
+        .dark body, .dark main { background-color: #0f172a !important; color: #f8fafc; }
+        .dark .bg-white, .dark .bg-slate-50, .dark .bg-slate-100 { background-color: #1e293b !important; border-color: #334155 !important; }
+        .dark header, .dark aside { background-color: #1e293b !important; border-color: #334155 !important; }
+        
+        .dark .text-slate-800, .dark .text-slate-900 { color: #f8fafc !important; }
+        .dark .text-slate-700 { color: #e2e8f0 !important; }
+        .dark .text-slate-600 { color: #cbd5e1 !important; }
+        .dark .text-slate-500 { color: #94a3b8 !important; }
+        
+        .dark input, .dark select, .dark textarea { background-color: #0f172a !important; color: #f1f5f9 !important; border-color: #334155 !important; }
+        .dark input:focus, .dark select:focus, .dark textarea:focus { background-color: #1e293b !important; border-color: #3b82f6 !important; }
+        
+        .dark .border-slate-100, .dark .border-slate-200 { border-color: #334155 !important; }
+        
+        /* Colored cards in dark mode (Status cards) */
+        .dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+        .dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.1) !important; border-color: rgba(168, 85, 247, 0.3) !important; }
+        .dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1) !important; border-color: rgba(16, 185, 129, 0.3) !important; }
+        .dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
+        .dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.1) !important; border-color: rgba(249, 115, 22, 0.3) !important; }
+        .dark .bg-\[\#F0FDF4\] { background-color: rgba(34, 197, 94, 0.1) !important; border-color: rgba(34, 197, 94, 0.3) !important; }
+
+        .dark .slide-page { background-color: #1e293b !important; color: #f8fafc !important; border-color: #334155 !important;}
+        
+        /* Custom dropdown styles */
+        .dropdown-menu { display: none; }
+        .dropdown-menu.show { display: block; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 h-screen flex overflow-hidden">
+
+    <!-- Toasts -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[999999] flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Edit Project Drawer -->
+    <div id="editProjectModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[1000] flex justify-end">
+        <div class="bg-white w-full max-w-lg h-full shadow-2xl flex flex-col transform transition-transform translate-x-full duration-300" id="editProjectDrawer">
+            <!-- Header -->
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 class="text-2xl font-black text-slate-800 flex items-center gap-3">
+                    <i class="fas fa-edit text-blue-500"></i> פרטי פרויקט
+                </h3>
+                <button type="button" id="btn-close-edit" class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-6 flex-1 overflow-y-auto flex flex-col gap-5">
+                <input type="hidden" id="editProjectId">
+                
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 mb-1.5 ml-1">שם הפרויקט / רחוב</label>
+                    <input type="text" id="editProjectName" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:bg-white transition-colors font-extrabold text-lg text-slate-800" placeholder="הכנס שם פרויקט...">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 mb-1.5 ml-1">קבלן מבצע</label>
+                        <div class="relative">
+                            <i class="fas fa-user-helmet absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="editProjectContractor" class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-3 outline-none focus:border-blue-500 focus:bg-white transition-colors text-slate-700 font-semibold" placeholder="שם הקבלן...">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 mb-1.5 ml-1">סוג פרויקט</label>
+                        <div class="relative">
+                            <i class="fas fa-tag absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <select id="editProjectType" class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-3 outline-none focus:border-blue-500 focus:bg-white transition-colors cursor-pointer text-slate-700 font-semibold appearance-none">
+                                <option value="בניה">בניה</option>
+                                <option value="תשתית">תשתית</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 mb-1.5 ml-1">סטטוס הנדסי נוכחי</label>
+                    <div class="relative">
+                        <i class="fas fa-tasks absolute right-3 top-1/2 -translate-y-1/2 text-blue-500"></i>
+                        <select id="editProjectStatus" class="w-full bg-blue-50 border border-blue-200 rounded-xl pr-10 pl-4 py-3 outline-none focus:border-blue-500 transition-colors cursor-pointer text-blue-800 font-black appearance-none text-lg">
+                            <option value="טרום הריסה">טרום הריסה</option>
+                            <option value="הריסה">הריסה</option>
+                            <option value="אתר חדש ללא הריסה">אתר חדש ללא הריסה</option>
+                            <option value="חפירה ודיפון">חפירה ודיפון</option>
+                            <option value="בניה">בניה</option>
+                            <option value="פיתוח מרחב ציבורי">פיתוח מרחב ציבורי</option>
+                            <option value="דיווח סיום פרויקט">דיווח סיום פרויקט</option>
+                            <option value="הפסקת עבודה">הפסקת עבודה</option>
+                            <option value="תשתית">תשתית</option>
+                            <option value="הסתיים ונמסר">ארכיון: הסתיים ונמסר</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none text-sm"></i>
+                    </div>
+                </div>
+
+                <div class="flex flex-col min-h-[120px]">
+                    <label class="block text-sm font-bold text-slate-500 mb-1.5 ml-1">מהות העבודה (פירוט)</label>
+                    <textarea id="editProjectDescription" class="w-full flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none text-slate-700 leading-relaxed min-h-[100px]" placeholder="תאר את התקדמות הפרויקט ומהות העבודה הנוכחית..."></textarea>
+                </div>
+
+                <!-- NEW: Action Buttons for Files (Image / PDF) -->
+                <div class="border-t border-slate-100 pt-5 mt-2" id="mediaActionsContainer">
+                    <label class="block text-sm font-bold text-slate-500 mb-2 ml-1"><i class="fas fa-paperclip text-slate-400 mr-1"></i> קבצים ומדיה</label>
+                    
+                    <div class="flex gap-3">
+                        <!-- Image Upload Button (Always visible) -->
+                        <button type="button" id="btn-upload-image" class="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-blue-200 shadow-sm transition-colors">
+                            <i class="fas fa-image text-lg"></i> <span class="text-sm">תמונה מהשטח</span>
+                        </button>
+                        
+                        <!-- PDF Upload Button (Only visible for Infra/תשתית) -->
+                        <button type="button" id="btn-extract-pdf" class="hidden flex-1 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-orange-200 shadow-sm transition-colors" title="מערכת חכמה לחילוץ מהות העבודה מקובץ PDF">
+                            <i class="fas fa-file-pdf text-lg"></i> <span class="text-sm">חילוץ PDF</span>
+                        </button>
+                    </div>
+                    
+                    <input type="file" id="pdfFileInput" accept=".pdf" class="hidden">
+
+                    <!-- Thumbnails Grid for Images -->
+                    <div id="drawerGalleryGrid" class="grid grid-cols-4 gap-3 mt-4 hidden">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Footer -->
+            <div class="p-6 border-t border-slate-200 bg-white flex gap-3 shrink-0" id="drawerFooterActions">
+               <button id="btn-delete-project-modal" class="px-5 text-red-500 bg-white border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors dark:bg-red-900/20 dark:border-red-800" title="מחק פרויקט לצמיתות">
+                   <i class="fas fa-trash-alt"></i>
+               </button>
+               <button id="btn-save-project" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-700 hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                   שמור שינויים <i class="fas fa-check mr-2"></i>
+               </button>
+            </div>
+            <!-- Read Only Footer -->
+            <div class="hidden p-6 border-t border-slate-200 bg-slate-100 text-center text-slate-500 font-bold shrink-0" id="drawerFooterReadOnly">
+                <i class="fas fa-lock ml-1"></i> פרויקט היסטורי (לקריאה בלבד)
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightboxModal" class="hidden fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+        <button id="btnCloseLightbox" class="absolute top-6 right-6 text-slate-300 hover:text-white text-4xl transition-colors"><i class="fas fa-times"></i></button>
+        <img id="lightboxImage" src="" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
+    </div>
+
+    <!-- Crop Modal -->
+    <div id="cropModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[95vh]">
+            <h3 class="text-2xl font-extrabold text-slate-800 mb-2">הגדר מיקוד לתמונה</h3>
+            <p class="text-slate-500 text-sm mb-4">המסגרת מעוצבת בדיוק ליחס המצגת. גרור, חתוך והתקרב (זום) כדי לבחור את החלק החשוב.</p>
+            <div class="flex-1 w-full max-h-[50vh] min-h-[300px] bg-slate-100 rounded-xl overflow-hidden mb-5 border border-slate-200">
+                <img id="cropper-image" src="" class="max-w-full block">
+            </div>
+            <div class="flex justify-end gap-3 shrink-0 pt-2 border-t border-slate-100">
+                <button type="button" id="btn-cancel-crop" class="px-6 py-3 text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors dark:bg-slate-700 dark:text-slate-300">ביטול</button>
+                <button type="button" id="btn-save-crop" class="px-6 py-3 text-white font-bold bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2">
+                    <i class="fas fa-crop-alt"></i> אישור וחתוך
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1200] flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-sm w-full border border-slate-200">
+            <div class="text-red-500 text-6xl text-center mb-4"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="text-3xl font-black text-center text-slate-800 mb-2">מחיקת פרויקט</h3>
+            <p class="mb-6 text-slate-600 text-center font-medium leading-relaxed">האם אתה בטוח שברצונך למחוק את הפרויקט לצמיתות מחודש זה? <br><span class="text-red-500 font-bold text-sm">פעולה זו לא ניתנת לביטול.</span></p>
+            <div class="flex justify-center gap-3">
+                <button type="button" id="btn-cancel-delete" class="flex-1 px-4 py-3 text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors dark:bg-slate-700 dark:text-slate-300">ביטול</button>
+                <button type="button" id="btn-execute-delete" class="flex-1 px-4 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md">כן, מחק פרויקט</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carry Over Modal -->
+    <div id="carryOverModal" class="hidden fixed inset-0 bg-blue-900/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-200">
+            <div class="text-blue-500 text-6xl text-center mb-4 animate-bounce"><i class="fas fa-calendar-plus"></i></div>
+            <h3 class="text-3xl font-black text-center text-slate-800 mb-3">חודש חדש החל!</h3>
+            <p class="mb-6 text-slate-600 text-center text-lg font-medium leading-relaxed">
+                ברוך הבא ל-<span id="newMonthName" class="font-bold text-blue-700 dark:text-blue-400"></span>.<br>
+                האם תרצה לייבא אוטומטית את הפרויקטים הפעילים מ-<span id="oldMonthName" class="font-bold"></span> אל תוך החודש החדש? 
+                <br><span class="text-sm text-slate-400">(תמונות ופרויקטים שהסתיימו לא יועתקו)</span>
+            </p>
+            <div class="flex justify-center gap-3">
+                <button type="button" id="btn-cancel-carryover" class="flex-1 px-4 py-3 text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors dark:bg-slate-700 dark:text-slate-300">לא, התחל דף ריק</button>
+                <button type="button" id="btn-execute-carryover" class="flex-1 px-4 py-3 text-white font-bold bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition-transform hover:-translate-y-1">כן, העתק נתונים</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unlock Past Month Modal -->
+    <div id="unlockModal" class="hidden fixed inset-0 bg-red-900/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-3xl shadow-xl max-w-sm w-full border border-slate-200">
+            <div class="text-red-500 text-5xl text-center mb-4"><i class="fas fa-lock-open"></i></div>
+            <h3 class="text-2xl font-extrabold text-center text-slate-800 mb-2">עריכת היסטוריה</h3>
+            <p class="mb-6 text-slate-600 text-center font-medium">שימו לב: שינוי נתונים היסטוריים ישפיע על דוחות עבר. פעולה זו מומלצת רק לתיקון טעויות. האם אתה בטוח שברצונך לפתוח חודש זה לעריכה?</p>
+            <div class="flex justify-center gap-3">
+                <button type="button" id="btn-cancel-unlock" class="flex-1 px-4 py-3 text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors dark:bg-slate-700 dark:text-slate-300">ביטול</button>
+                <button type="button" id="btn-execute-unlock" class="flex-1 px-4 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition-colors">פתח לעריכה</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear All Modal -->
+    <div id="clearAllModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-3xl shadow-xl max-w-sm w-full border border-slate-200">
+            <div class="text-red-500 text-5xl text-center mb-4"><i class="fas fa-bomb"></i></div>
+            <h3 class="text-2xl font-extrabold text-center text-slate-800 mb-2">מחיקת כל הנתונים</h3>
+            <p class="mb-6 text-slate-600 text-center font-medium">פעולה זו תמחק את כל הפרויקטים לחודש זה בלבד. האם להמשיך?</p>
+            <div class="flex justify-center gap-3">
+                <button type="button" id="btn-cancel-clear" class="flex-1 px-4 py-3 text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors dark:bg-slate-700 dark:text-slate-300">ביטול</button>
+                <button type="button" id="btn-execute-clear" class="flex-1 px-4 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-xl transition-colors">מחק נתוני חודש</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex justify-center items-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 class="text-2xl font-black text-slate-800"><i class="fas fa-cog text-slate-500 mr-2"></i> הגדרות מערכת</h3>
+                <button id="btn-close-settings" class="text-slate-400 hover:text-red-500 text-2xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-8 flex flex-col md:flex-row gap-8 overflow-y-auto bg-slate-100/50 flex-1 dark:bg-slate-800">
+                
+                <!-- Display Settings -->
+                <div class="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
+                    <h4 class="font-bold text-lg mb-6 text-slate-800 border-b border-slate-100 pb-2"><i class="fas fa-palette text-blue-500 mr-2"></i> תצוגה (Theme)</h4>
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-700">מצב לילה (Dark Mode)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="theme-toggle" class="sr-only peer">
+                            <div class="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Data Settings -->
+                <div class="flex-[2] bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-lg mb-6 text-slate-800 border-b border-slate-100 pb-2"><i class="fas fa-database text-emerald-500 mr-2"></i> נתונים וגיבויים</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button id="btn-modal-dl-template" class="flex items-center gap-4 p-4 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100 text-right group dark:bg-emerald-900/20 dark:border-emerald-800">
+                            <div class="bg-white dark:bg-emerald-800 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-file-excel text-xl dark:text-emerald-100"></i></div>
+                            <div><div class="font-bold text-base dark:text-emerald-200">תבנית אקסל ריקה</div><div class="text-xs opacity-80 mt-0.5 dark:text-emerald-300">להזנת נתונים נוחה</div></div>
+                        </button>
+                        <button id="btn-modal-upload" class="flex items-center gap-4 p-4 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 text-right group dark:bg-indigo-900/20 dark:border-indigo-800">
+                            <div class="bg-white dark:bg-indigo-800 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-upload text-xl dark:text-indigo-100"></i></div>
+                            <div><div class="font-bold text-base dark:text-indigo-200">ייבוא נתונים</div><div class="text-xs opacity-80 mt-0.5 dark:text-indigo-300">טעינת קובץ אקסל</div></div>
+                        </button>
+                        <button id="btn-modal-export" class="flex items-center gap-4 p-4 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors border border-blue-100 text-right group dark:bg-blue-900/20 dark:border-blue-800">
+                            <div class="bg-white dark:bg-blue-800 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-download text-xl dark:text-blue-100"></i></div>
+                            <div><div class="font-bold text-base dark:text-blue-200">ייצוא לאקסל</div><div class="text-xs opacity-80 mt-0.5 dark:text-blue-300">שמירת דוח נוכחי</div></div>
+                        </button>
+                        <button id="btn-modal-clear" class="flex items-center gap-4 p-4 bg-red-50 text-red-700 rounded-xl hover:bg-red-100 transition-colors border border-red-100 text-right group dark:bg-red-900/20 dark:border-red-800">
+                            <div class="bg-white dark:bg-red-800 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-trash-alt text-xl dark:text-red-100"></i></div>
+                            <div><div class="font-bold text-base dark:text-red-200">מחיקת חודש</div><div class="text-xs opacity-80 mt-0.5 dark:text-red-300">איפוס נתונים קיימים</div></div>
+                        </button>
+                        
+                        <div class="col-span-full border-t border-slate-100 my-2"></div>
+
+                        <button id="btn-modal-backup" class="flex items-center gap-4 p-4 bg-slate-50 text-slate-700 rounded-xl hover:bg-slate-100 transition-colors border border-slate-200 text-right group">
+                            <div class="bg-white dark:bg-slate-700 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-save text-xl text-slate-600 dark:text-slate-200"></i></div>
+                            <div><div class="font-bold text-base">גיבוי מערכת נקי</div><div class="text-xs opacity-80 mt-0.5">שמירת נתוני טקסט ומספרים (ללא תמונות)</div></div>
+                        </button>
+                        <button id="btn-modal-restore" class="flex items-center gap-4 p-4 bg-slate-50 text-slate-700 rounded-xl hover:bg-slate-100 transition-colors border border-slate-200 text-right group">
+                            <div class="bg-white dark:bg-slate-700 p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-cloud-upload-alt text-xl text-slate-600 dark:text-slate-200"></i></div>
+                            <div><div class="font-bold text-base">שחזור מגיבוי</div><div class="text-xs opacity-80 mt-0.5">טעינת קובץ המערכת</div></div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating PDF Button -->
+    <button id="floating-print-btn" type="button" class="btn-trigger-pdf hidden fixed bottom-10 left-10 z-[99999] flex items-center gap-3 bg-red-600 text-white px-6 py-4 rounded-2xl font-bold hover:bg-red-700 shadow-2xl transition-all hover:-translate-y-1 border-2 border-red-500 cursor-pointer group">
+        <i class="fas fa-file-pdf text-2xl group-hover:animate-bounce"></i>
+        <span class="text-xl">הורד כ-PDF</span>
+    </button>
+    
+    <input type="file" id="projectImageInput" accept="image/jpeg, image/png, image/webp" class="hidden">
+    <input type="file" id="excelInput" class="hidden" accept=".xlsx, .xls">
+    <input type="file" id="backupInput" class="hidden" accept=".json">
+
+    <!-- Sidebar -->
+    <aside id="main-sidebar" class="bg-white border-slate-200 shadow-sm z-20 shrink-0 border-l relative sidebar-collapsed flex flex-col">
+        <div class="sidebar-pad py-6 flex flex-col h-full w-full overflow-y-auto overflow-x-hidden">
+            <!-- Header -->
+            <div class="flex items-center gap-4 mb-8 shrink-0">
+                <button type="button" id="btn-toggle-sidebar" class="text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 w-10 h-10 flex items-center justify-center rounded-xl transition-colors focus:outline-none shrink-0" title="פתיחה/סגירה של התפריט">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div class="flex flex-col sidebar-text whitespace-nowrap">
+                    <h2 class="text-xl font-black text-slate-800 leading-tight">בקרת פיקוח</h2>
+                    <p class="text-xs text-slate-500 mt-1 font-medium">יומן עבודה הנדסי</p>
+                </div>
+            </div>
+            
+            <nav class="flex flex-col gap-3 flex-1" id="nav-menu">
+                <button type="button" data-action="switch-tab" data-target="dashboard" class="nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all bg-blue-600 text-white shadow-md" title="דשבורד חודשי">
+                    <i class="fas fa-chart-pie text-xl w-6 text-center shrink-0"></i> 
+                    <span class="sidebar-text font-semibold text-lg whitespace-nowrap">דשבורד חודשי</span>
+                </button>
+                <button type="button" data-action="switch-tab" data-target="editor" class="nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" title="אזור עבודה">
+                    <i class="fas fa-columns text-xl w-6 text-center shrink-0"></i> 
+                    <span class="sidebar-text font-semibold text-lg whitespace-nowrap">אזור עבודה</span>
+                </button>
+                <button type="button" data-action="switch-tab" data-target="preview" class="nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" title="מצגת שוטפת (PDF)">
+                    <i class="fas fa-desktop text-xl w-6 text-center shrink-0"></i> 
+                    <span class="sidebar-text font-semibold text-lg whitespace-nowrap">מצגת שוטפת (PDF)</span>
+                </button>
+                <button type="button" data-action="switch-tab" data-target="reports" class="nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" title="השוואה ודוחות">
+                    <i class="fas fa-chart-line text-xl w-6 text-center shrink-0"></i> 
+                    <span class="sidebar-text font-semibold text-lg whitespace-nowrap">השוואה ודוחות</span>
+                </button>
+            </nav>
+            
+            <div class="mt-auto pt-4 border-t border-slate-100 w-full shrink-0">
+                <!-- Storage Indicator -->
+                <div class="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100 sidebar-text dark:bg-slate-800 dark:border-slate-700">
+                    <div class="flex justify-between text-xs mb-1.5 font-bold text-slate-500">
+                        <span class="flex items-center gap-1.5"><i class="fas fa-database text-slate-400"></i> ניצול זיכרון</span>
+                        <span id="storage-text">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden dark:bg-slate-700">
+                        <div id="storage-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Footer / Toolbar -->
+                <div class="w-full">
+                    <button type="button" id="btn-open-settings" class="w-full group relative flex items-center justify-center p-3.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all shadow-sm border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700" title="הגדרות מערכת">
+                        <i class="fas fa-cog text-xl group-hover:rotate-90 transition-transform duration-500"></i>
+                        <span class="sidebar-text font-bold mr-3 hidden">הגדרות</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden h-full bg-slate-100">
+        
+        <!-- Topbar: Month Selector (Time-Based Navigation) -->
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="flex bg-slate-100 rounded-xl p-1 border border-slate-200 items-center dark:bg-slate-800 dark:border-slate-700">
+                    <button type="button" id="btn-next-month" class="px-3 py-1.5 text-slate-500 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent" title="חודש הבא">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div id="current-month-display" class="px-6 py-1.5 font-black text-xl text-slate-800 min-w-[140px] text-center tracking-wide">
+                        -- --
+                    </div>
+                    <button type="button" id="btn-prev-month" class="px-3 py-1.5 text-slate-500 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors" title="חודש קודם">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                
+                <!-- Read Only Indicator / Unlock Button -->
+                <div id="readonly-indicator" class="hidden items-center gap-2">
+                    <span class="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 border border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600">
+                        <i class="fas fa-lock"></i> מצב קריאה (היסטוריה)
+                    </span>
+                    <button type="button" id="btn-unlock-history" class="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-200 dark:bg-red-900/20 dark:border-red-800">
+                        פתח לעריכה
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                 <select id="regionSelect" class="bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-xl px-4 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-blue-400 text-sm shadow-sm transition-all hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300" title="בחר מרחב">
+                    <option value="צפון, מזרח + מערב">צפון, מזרח + מערב</option>
+                    <option value="מתחם כיכר המדינה">מתחם כיכר המדינה</option>
+                    <option value="מתחם יהודה מכבי">מתחם יהודה מכבי</option>
+                    <option value="מתחם ארנון">מתחם ארנון</option>
+                    <option value="מרכז">מרכז</option>
+                    <option value="מרכז מזרח דרום">מרכז מזרח דרום</option>
+                    <option value="מרכז מערב צפוני">מרכז מערב צפוני</option>
+                    <option value="מרכז מערב דרומי">מרכז מערב דרומי</option>
+                    <option value="דרום מזרח">דרום מזרח</option>
+                    <option value="דרום מ+יפו">דרום מ+יפו</option>
+                    <option value="קו סגול">קו סגול</option>
+                    <option value="קו ירוק">קו ירוק</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Tabs Container -->
+        <div class="flex-1 overflow-auto relative" id="main-scroll-area">
+            
+            <!-- Tab 1: Dashboard (Infographics) -->
+            <div id="dashboard-tab" class="tab-content flex flex-col space-y-6 max-w-[1400px] mx-auto w-full pb-10 p-4 md:p-8">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6" id="dashboard-top-stats"></div>
+                
+                <div class="flex flex-col xl:flex-row gap-6 h-auto">
+                    
+                    <!-- 60%: Project Pipeline / Distribution -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex-[1.5] flex flex-col justify-center min-h-[350px] dark:bg-slate-800 dark:border-slate-700">
+                        <!-- Title -->
+                        <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-3 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 dark:text-slate-100"><i class="fas fa-chart-bar text-blue-500 mr-2"></i> התפלגות שלבי בניה</h4>
+                            <span class="text-sm font-bold text-slate-400">100% מסך הפעילות</span>
+                        </div>
+                        
+                        <!-- Core Pipeline -->
+                        <div class="flex flex-row items-center justify-between w-full mb-4 px-1">
+                            <div onclick="goToWorkspaceStatus('טרום הריסה')" class="flex-1 bg-white border-2 border-slate-200 rounded-2xl p-2 shadow-sm mx-1 h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-slate-700 dark:border-slate-600">
+                                <i class="fas fa-home text-slate-300 text-2xl mb-1 dark:text-slate-400"></i>
+                                <div id="pipe-stage-1" class="text-3xl font-black text-slate-700 mb-0.5 leading-none dark:text-slate-200">0</div>
+                                <div class="text-xs font-bold text-slate-500 text-center leading-none dark:text-slate-400">טרום הריסה</div>
+                            </div>
+                            
+                            <div onclick="goToWorkspaceStatus('הריסה / אתר חדש')" class="flex-1 bg-slate-50 border-2 border-slate-300 rounded-2xl p-2 shadow-sm mx-1 h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-slate-700 dark:border-slate-500">
+                                <i class="fas fa-truck-pickup text-slate-400 text-2xl mb-1"></i>
+                                <div id="pipe-stage-2" class="text-3xl font-black text-slate-700 mb-0.5 leading-none dark:text-slate-200">0</div>
+                                <div class="text-xs font-bold text-slate-600 text-center leading-none dark:text-slate-300">הריסה/חדש</div>
+                            </div>
+                            
+                            <div onclick="goToWorkspaceStatus('חפירה ודיפון')" class="flex-1 bg-purple-50 border-2 border-purple-200 rounded-2xl p-2 shadow-sm mx-1 h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-purple-900/20 dark:border-purple-800">
+                                <i class="fas fa-layer-group text-purple-300 text-2xl mb-1"></i>
+                                <div id="pipe-stage-3" class="text-3xl font-black text-purple-700 mb-0.5 leading-none dark:text-purple-400">0</div>
+                                <div class="text-xs font-bold text-purple-600 text-center leading-none dark:text-purple-500">דיפון</div>
+                            </div>
+                            
+                            <div onclick="goToWorkspaceStatus('בניה')" class="flex-1 bg-blue-50 border-2 border-blue-300 rounded-2xl p-2 shadow-md mx-1 h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-blue-900/20 dark:border-blue-800">
+                                <i class="fas fa-building text-blue-400 text-2xl mb-1"></i>
+                                <div id="pipe-stage-4" class="text-3xl font-black text-blue-700 mb-0.5 leading-none dark:text-blue-400">0</div>
+                                <div class="text-xs font-black text-blue-600 text-center leading-none dark:text-blue-500">בניה</div>
+                            </div>
+                            
+                            <div onclick="goToWorkspaceStatus('פיתוח מרחב ציבורי')" class="flex-1 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-2 shadow-sm mx-1 h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-emerald-900/20 dark:border-emerald-800">
+                                <i class="fas fa-paint-roller text-emerald-300 text-2xl mb-1"></i>
+                                <div id="pipe-stage-5" class="text-3xl font-black text-emerald-700 mb-0.5 leading-none dark:text-emerald-400">0</div>
+                                <div class="text-xs font-bold text-emerald-600 text-center leading-none dark:text-emerald-500">גמרים</div>
+                            </div>
+                        </div>
+
+                        <!-- Extra Statuses to complete 100% -->
+                        <div class="flex w-full items-center justify-center gap-4 px-2 pt-4 border-t border-slate-50 mt-2 dark:border-slate-700/50">
+                            <div onclick="goToWorkspaceStatus('הפסקת עבודה')" class="w-[150px] bg-red-50 border-2 border-red-200 rounded-2xl p-2 shadow-sm h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-red-900/20 dark:border-red-800">
+                                <i class="fas fa-stop-circle text-red-300 text-2xl mb-1 dark:text-red-400"></i>
+                                <div id="pipe-stage-paused" class="text-3xl font-black text-red-700 mb-0.5 leading-none dark:text-red-400">0</div>
+                                <div class="text-sm font-bold text-red-600 text-center leading-none dark:text-red-500">הפסקת עבודה</div>
+                            </div>
+                            <div onclick="goToWorkspaceStatus('לקראת מסירה')" class="w-[150px] bg-[#F0FDF4] border-2 border-[#86EFAC] rounded-2xl p-2 shadow-sm h-[110px] flex flex-col items-center justify-center hover:-translate-y-1 transition-transform cursor-pointer dark:bg-[#14532D]/30 dark:border-[#166534]">
+                                <i class="fas fa-key text-[#86EFAC] text-2xl mb-1 dark:text-[#4ADE80]"></i>
+                                <div id="pipe-stage-finishing" class="text-3xl font-black text-[#15803D] mb-0.5 leading-none dark:text-[#4ADE80]">0</div>
+                                <div class="text-sm font-bold text-[#166534] text-center leading-none dark:text-[#22C55E]">לקראת מסירה</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 40%: Street Density -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden min-h-[350px] dark:bg-slate-800 dark:border-slate-700">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 dark:text-slate-100"><i class="fas fa-map-marked-alt text-orange-500 mr-2"></i> מוקדי חיכוך (צפיפות)</h4>
+                            <span class="text-sm font-bold text-slate-400">טופ 5 צירים עמוסים</span>
+                        </div>
+                        
+                        <div id="density-list" class="flex-1 flex flex-col gap-3 overflow-y-auto pr-2">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Tab 2: Editor (Workspace - Drill-down) -->
+            <div id="editor-tab" class="tab-content hidden flex-col mx-auto w-full h-full pb-4 px-4 md:px-8">
+                
+                <!-- Controls Row (Sticky Top) -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center justify-between mt-6 shrink-0 sticky top-0 z-10 dark:bg-slate-800 dark:border-slate-700">
+                    <div class="flex items-center gap-4 flex-1">
+                        <div class="text-slate-500 font-bold ml-2 hidden lg:block dark:text-slate-400"><i class="fas fa-filter"></i> סינון:</div>
+                        
+                        <!-- Search -->
+                        <div class="flex-1 max-w-xs relative">
+                            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="filterSearch" placeholder="חפש פרויקט/קבלן..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-2 outline-none focus:ring-2 focus:ring-blue-400 transition-all font-medium text-slate-700 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+                        </div>
+                        
+                        <!-- Type Filter -->
+                        <select id="filterType" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-blue-400 font-bold text-slate-700 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+                            <option value="all">כל הסוגים</option>
+                            <option value="בניה">בניה בלבד</option>
+                            <option value="תשתית">תשתית בלבד</option>
+                        </select>
+
+                        <!-- NEW: Multi-select Status Filter -->
+                        <div class="relative" id="statusFilterContainer">
+                            <button type="button" id="btn-status-filter" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-blue-400 font-bold text-slate-700 flex items-center gap-2 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+                                <span id="statusFilterLabel">כל הסטטוסים</span>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            <!-- Dropdown Menu -->
+                            <div id="statusFilterMenu" class="dropdown-menu absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
+                                <div class="flex flex-col gap-1" id="statusCheckboxes">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Add Button -->
+                    <div class="relative group">
+                        <button type="button" id="btn-add-project" class="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">
+                            <i class="fas fa-plus"></i> הוסף פרויקט
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Breadcrumbs -->
+                <div id="workspace-breadcrumbs" class="hidden mt-6 mb-2 flex items-center gap-2 text-sm font-black text-slate-500">
+                    <button class="hover:text-blue-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700" onclick="goToWorkspaceLevel1()"><i class="fas fa-layer-group ml-1"></i> כל הסטטוסים</button>
+                    <i class="fas fa-chevron-left text-xs opacity-50"></i>
+                    <span id="workspace-current-status" class="text-slate-800 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">...</span>
+                </div>
+
+                <!-- Level 1: Categories Grid -->
+                <div id="workspace-level-1" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 flex-1 overflow-y-auto mt-6 pb-10 content-start">
+                    <!-- Categories generated by JS -->
+                </div>
+
+                <!-- Level 2: Projects Grid -->
+                <div id="workspace-level-2" class="hidden flex-1 overflow-y-auto mt-4 pb-10">
+                    <div id="workspace-projects-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 content-start">
+                        <!-- Projects generated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Presentation (PDF) -->
+            <div id="preview-tab" class="tab-content hidden flex-col items-center pb-20 w-full">
+                <div class="w-full max-w-[1123px] px-4 md:px-8 mt-4 md:mt-8 mb-8 shrink-0">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full bg-blue-50 border border-blue-200 p-5 rounded-2xl shadow-sm dark:bg-blue-900/10 dark:border-blue-800">
+                        <div class="flex items-start gap-4">
+                            <div>
+                                <h3 class="text-2xl font-bold flex items-center gap-2 text-blue-900 dark:text-blue-300">
+                                    <i class="fas fa-desktop"></i> מצגת שוטפת - <span id="presentation-month-title"></span>
+                                </h3>
+                                <p class="text-blue-700 dark:text-blue-400 text-sm mt-1">המצגת הותאמה אוטומטית למסך עם עיצוב ופרופורציות משופרים. לחץ על ההורדה לקבלת PDF.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-trigger-pdf flex items-center gap-2 bg-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-800 shadow-md transition-all shrink-0">
+                            <i class="fas fa-download"></i> הורד קובץ למחשב
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-full flex justify-center px-4">
+                    <div id="presentation-scale-wrapper" class="w-full max-w-[1123px] relative flex justify-center origin-top">
+                        <div id="presentation-container" class="flex flex-col gap-8 w-[1123px] shrink-0 origin-top bg-slate-100 p-4 rounded-xl dark:bg-slate-800">
+                            <!-- Slides generated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Reports (Comparison & Analytics with Internal Tabs) -->
+            <div id="reports-tab" class="tab-content hidden flex-col mx-auto w-full h-full pb-4 px-4 md:px-8 overflow-y-auto">
+                <div class="max-w-[1400px] w-full mx-auto mt-6 space-y-6 pb-10">
+                    
+                    <!-- Header -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center dark:bg-slate-800 dark:border-slate-700">
+                        <div>
+                            <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                                <i class="fas fa-chart-line text-blue-500"></i> אנליטיקה ודוחות: <span id="reports-month-title" class="text-blue-700 dark:text-blue-400"></span>
+                            </h3>
+                            <p class="text-slate-500 dark:text-slate-400 font-medium mt-1">השוואת נתוני הפעילות לעומת חודש קודם ומגמות היסטוריות</p>
+                        </div>
+                    </div>
+
+                    <!-- KPIs -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- New Projects -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-blue-500 flex flex-col relative overflow-hidden transition-transform hover:-translate-y-1 dark:bg-slate-800 dark:border-slate-700">
+                            <div class="absolute top-4 left-4 text-blue-100 text-6xl opacity-50 dark:opacity-10"><i class="fas fa-plus-circle"></i></div>
+                            <p class="text-slate-500 font-bold mb-2 dark:text-slate-400">אתרים חדשים שנפתחו (לעומת קודם)</p>
+                            <div class="flex items-end gap-3 z-10">
+                                <span id="report-new-sites-count" class="text-4xl font-black text-blue-600 dark:text-blue-400">0</span>
+                                <span class="text-sm font-bold text-slate-400 mb-1">פרויקטים חדשים</span>
+                            </div>
+                        </div>
+                        <!-- Finished -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-500 flex flex-col relative overflow-hidden transition-transform hover:-translate-y-1 dark:bg-slate-800 dark:border-slate-700">
+                            <div class="absolute top-4 left-4 text-emerald-100 text-6xl opacity-50 dark:opacity-10"><i class="fas fa-check-circle"></i></div>
+                            <p class="text-slate-500 font-bold mb-2 dark:text-slate-400">פרויקטים שהסתיימו (לעומת קודם)</p>
+                            <div class="flex items-end gap-3 z-10">
+                                <span id="report-finished-sites-count" class="text-4xl font-black text-emerald-600 dark:text-emerald-400">0</span>
+                                <span class="text-sm font-bold text-slate-400 mb-1">עברו למסירה / הוסרו</span>
+                            </div>
+                        </div>
+                        <!-- Net Change -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-purple-500 flex flex-col relative overflow-hidden transition-transform hover:-translate-y-1 dark:bg-slate-800 dark:border-slate-700">
+                            <div class="absolute top-4 left-4 text-purple-100 text-6xl opacity-50 dark:opacity-10"><i class="fas fa-balance-scale"></i></div>
+                            <p class="text-slate-500 font-bold mb-2 dark:text-slate-400">שינוי בעומס העבודה נטו</p>
+                            <div class="flex items-end gap-3 z-10">
+                                <span id="report-net-change" class="text-4xl font-black text-purple-600 dark:text-purple-400">0</span>
+                                <span class="text-sm font-bold text-slate-400 mb-1">פרויקטים פעילים</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Internal Tabs Navigation -->
+                    <div class="flex gap-2 border-b border-slate-200 dark:border-slate-700 mb-2 overflow-x-auto pb-px" id="inner-reports-nav">
+                        <button type="button" class="inner-report-btn active whitespace-nowrap px-6 py-3 font-bold text-blue-600 border-b-2 border-blue-600 transition-colors dark:text-blue-400 dark:border-blue-400" data-target="rep-overview">
+                            <i class="fas fa-chart-area mr-1"></i> מבט על ועומסים
+                        </button>
+                        <button type="button" class="inner-report-btn whitespace-nowrap px-6 py-3 font-bold text-slate-500 hover:text-slate-800 border-b-2 border-transparent hover:border-slate-300 transition-colors dark:text-slate-400 dark:hover:text-slate-200" data-target="rep-compare">
+                            <i class="fas fa-chart-bar mr-1"></i> השוואת סטטוסים
+                        </button>
+                        <button type="button" class="inner-report-btn whitespace-nowrap px-6 py-3 font-bold text-slate-500 hover:text-slate-800 border-b-2 border-transparent hover:border-slate-300 transition-colors dark:text-slate-400 dark:hover:text-slate-200" data-target="rep-movements">
+                            <i class="fas fa-exchange-alt mr-1"></i> תנועות ומסירות
+                        </button>
+                    </div>
+
+                    <!-- Inner Tab: Overview (Trend Chart) -->
+                    <div id="rep-overview" class="inner-report-content">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-[300px] flex flex-col dark:bg-slate-800 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 mb-4 flex justify-between items-center border-b border-slate-100 pb-3 dark:text-slate-100 dark:border-slate-700">
+                                <span><i class="fas fa-chart-area text-blue-500 ml-2"></i> סה"כ כמות אתרים במרחב (6 חודשים)</span>
+                            </h4>
+                            <div class="flex-1 relative w-full h-full min-h-[200px]">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inner Tab: Status Comparison -->
+                    <div id="rep-compare" class="inner-report-content hidden">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-[350px] flex flex-col dark:bg-slate-800 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 mb-4 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 gap-4 dark:text-slate-100 dark:border-slate-700">
+                                <span><i class="fas fa-chart-bar text-purple-500 ml-2"></i> השוואת סטטוסים בין חודשים</span>
+                                <div class="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
+                                    <span>השווה מול:</span>
+                                    <div class="relative" id="compareMonthFilterContainer">
+                                        <button type="button" id="btn-compare-month" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none cursor-pointer focus:ring-2 focus:ring-purple-400 font-bold text-slate-700 flex items-center gap-2 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-200">
+                                            <span id="compareMonthLabel">חודשים נבחרו</span>
+                                            <i class="fas fa-chevron-down text-xs"></i>
+                                        </button>
+                                        <div id="compareMonthMenu" class="dropdown-menu absolute left-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
+                                            <div class="flex flex-col gap-1" id="compareMonthCheckboxes">
+                                                <!-- populated by JS -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </h4>
+                            <div class="flex-1 relative w-full h-full min-h-[220px]">
+                                <canvas id="comparisonBarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inner Tab: Movements & Transitions -->
+                    <div id="rep-movements" class="inner-report-content hidden flex-col gap-6">
+                        
+                        <!-- New Inflow/Outflow Chart -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-[300px] flex flex-col dark:bg-slate-800 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 mb-4 flex justify-between items-center border-b border-slate-100 pb-3 dark:text-slate-100 dark:border-slate-700">
+                                <span><i class="fas fa-water text-emerald-500 ml-2"></i> כניסה מול מסירה של אתרים (תנועה נטו)</span>
+                            </h4>
+                            <div class="flex-1 relative w-full h-full min-h-[200px]">
+                                <canvas id="inflowOutflowChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Transitions Table -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col min-h-[300px] max-h-[500px] dark:bg-slate-800 dark:border-slate-700">
+                            <h4 class="font-black text-xl text-slate-800 mb-4 flex justify-between items-center border-b border-slate-100 pb-3 dark:text-slate-100 dark:border-slate-700">
+                                <span><i class="fas fa-exchange-alt text-orange-500 ml-2"></i> פירוט שינוי הסטטוסים (מול החודש הראשון להשוואה)</span>
+                            </h4>
+                            <div id="report-transitions-list" class="flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pb-2">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        (() => {
+            // --- XSS Protection ---
+            function escapeHTML(str) {
+                if (!str) return '';
+                return String(str).replace(/[&<>'"]/g, function (tag) {
+                    const chars = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                    return chars[tag] || tag;
+                });
+            }
+
+            function showToast(msg, isError = false) {
+                const toast = document.createElement('div');
+                toast.className = `px-6 py-3 rounded-xl font-bold shadow-2xl transition-all duration-300 transform translate-y-10 opacity-0 flex items-center gap-3 ${isError ? 'bg-red-600 text-white border-2 border-red-500' : 'bg-slate-800 text-white border-2 border-slate-700'}`;
+                toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'} text-2xl"></i><span class="text-lg">${escapeHTML(msg)}</span>`;
+                
+                const container = document.getElementById('toast-container');
+                if (container) {
+                    container.appendChild(toast);
+                    requestAnimationFrame(() => {
+                        setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+                    });
+                    setTimeout(() => {
+                        toast.classList.add('translate-y-10', 'opacity-0');
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3500);
+                }
+            }
+
+            // --- State Management (Time-Based) ---
+            const BASE_STORAGE_KEY = 'projecthq_v16_';
+            let appProjects = [];
+            let currentViewDate = new Date(); 
+            currentViewDate.setDate(1); 
+            
+            let unlockedMonths = {}; 
+            let isReadOnly = false;
+            
+            // Drawer & Editor State
+            let editingProjectId = null;
+            let currentImageProjectId = null;
+            let currentDrawerImages = []; 
+            let cropperInstance = null; 
+            
+            // Chart instances
+            let reportsChartInstance = null;
+            let reportsBarChartInstance = null;
+            let reportsInOutChartInstance = null;
+            
+            // Workspace State
+            let workspaceViewLevel = 1; 
+            let selectedCategoryIndex = -1;
+            
+            // Compare State
+            let selectedCompareOffsets = [0, 1]; // Current & Previous month by default
+            
+            // Get region from storage
+            let currentRegionName = localStorage.getItem('projecthq_region_v16') || 'צפון, מזרח + מערב';
+
+            // Constants
+            const STATUS_OPTIONS = [
+                'טרום הריסה', 'הריסה', 'אתר חדש ללא הריסה', 'חפירה ודיפון', 'בניה', 
+                'פיתוח מרחב ציבורי', 'דיווח סיום פרויקט', 'הסתיים ונמסר', 'הפסקת עבודה', 'תשתית'
+            ];
+
+            const KANBAN_COLUMNS = [
+                { id: 'col-1', title: 'טרום הריסה', statuses: ['טרום הריסה'], color: 'bg-slate-200 border-t-slate-400', icon: 'fa-home', iconColor: 'text-slate-500' },
+                { id: 'col-2', title: 'הריסה / אתר חדש', statuses: ['הריסה', 'אתר חדש ללא הריסה'], color: 'bg-slate-200 border-t-slate-500', icon: 'fa-truck-pickup', iconColor: 'text-slate-600' },
+                { id: 'col-3', title: 'חפירה ודיפון', statuses: ['חפירה ודיפון'], color: 'bg-purple-50 border-t-purple-400', icon: 'fa-layer-group', iconColor: 'text-purple-500' },
+                { id: 'col-4', title: 'בניה', statuses: ['בניה'], color: 'bg-blue-50 border-t-blue-500', icon: 'fa-building', iconColor: 'text-blue-500' },
+                { id: 'col-5', title: 'פיתוח מרחב ציבורי', statuses: ['פיתוח מרחב ציבורי'], color: 'bg-emerald-50 border-t-emerald-400', icon: 'fa-tree', iconColor: 'text-emerald-500' },
+                { id: 'col-6', title: 'תשתית', statuses: ['תשתית'], color: 'bg-orange-50 border-t-orange-400', icon: 'fa-road', iconColor: 'text-orange-500' },
+                { id: 'col-7', title: 'הפסקת עבודה', statuses: ['הפסקת עבודה'], color: 'bg-red-50 border-t-red-500', icon: 'fa-stop-circle', iconColor: 'text-red-500' },
+                { id: 'col-8', title: 'לקראת מסירה', statuses: ['דיווח סיום פרויקט'], color: 'bg-[#F0FDF4] border-t-[#166534]', icon: 'fa-key', iconColor: 'text-[#166534]' }
+            ];
+
+            const CARD_THEMES = [
+                { bg: 'bg-red-50', border: 'border-red-200', textTitle: 'text-red-900', textNum: 'text-red-600', pillBorder: 'border-red-100', iconColor: 'text-red-400', barColor: 'bg-red-400' },
+                { bg: 'bg-orange-50', border: 'border-orange-200', textTitle: 'text-orange-900', textNum: 'text-orange-600', pillBorder: 'border-orange-100', iconColor: 'text-orange-400', barColor: 'bg-orange-400' },
+                { bg: 'bg-blue-50', border: 'border-blue-200', textTitle: 'text-blue-900', textNum: 'text-blue-600', pillBorder: 'border-blue-100', iconColor: 'text-blue-400', barColor: 'bg-blue-400' },
+                { bg: 'bg-purple-50', border: 'border-purple-200', textTitle: 'text-purple-900', textNum: 'text-purple-600', pillBorder: 'border-purple-100', iconColor: 'text-purple-400', barColor: 'bg-purple-400' },
+                { bg: 'bg-emerald-50', border: 'border-emerald-200', textTitle: 'text-emerald-900', textNum: 'text-emerald-600', pillBorder: 'border-emerald-100', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' }
+            ];
+
+            let currentFilters = { search: '', type: 'all', statuses: [] };
+            let projectIdToDelete = null;
+
+            // Multi-Select UI Initialization
+            function initStatusMultiSelect() {
+                const container = document.getElementById('statusCheckboxes');
+                if(!container) return;
+                container.innerHTML = KANBAN_COLUMNS.map((col, idx) => `
+                    <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer dark:hover:bg-slate-700">
+                        <input type="checkbox" value="${idx}" class="status-cb w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-200">${col.title}</span>
+                    </label>
+                `).join('');
+
+                document.querySelectorAll('.status-cb').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const checked = Array.from(document.querySelectorAll('.status-cb:checked')).map(el => parseInt(el.value));
+                        currentFilters.statuses = checked;
+                        
+                        const label = document.getElementById('statusFilterLabel');
+                        if(checked.length === 0) label.innerText = 'כל הסטטוסים';
+                        else if(checked.length === 1) label.innerText = KANBAN_COLUMNS[checked[0]].title;
+                        else label.innerText = `${checked.length} נבחרו`;
+                        
+                        updateFilters();
+                    });
+                });
+            }
+
+            // Dashboard Filter Routing
+            window.filterWorkspaceFromDashboard = function(type) {
+                document.getElementById('filterSearch').value = '';
+                currentFilters.search = '';
+                currentFilters.statuses = [];
+                document.querySelectorAll('.status-cb').forEach(cb => cb.checked = false);
+                document.getElementById('statusFilterLabel').innerText = 'כל הסטטוסים';
+                
+                document.getElementById('filterType').value = type;
+                currentFilters.type = type;
+                
+                workspaceViewLevel = 1;
+                selectedCategoryIndex = -1;
+                switchTab('editor');
+            };
+
+            // Globals explicitly set for onclick handlers
+            window.goToWorkspaceLevel1 = function() {
+                workspaceViewLevel = 1;
+                selectedCategoryIndex = -1;
+                renderEditor();
+            };
+
+            window.goToWorkspaceStatus = function(title) {
+                let idx = KANBAN_COLUMNS.findIndex(c => c.title === title || c.statuses.includes(title));
+                if (idx === -1 && title === 'ארכיון מסירות') idx = KANBAN_COLUMNS.length; 
+                
+                if(idx !== -1) {
+                    const activeTabEl = document.querySelector('.nav-btn.bg-blue-600');
+                    const isEditorActive = activeTabEl && activeTabEl.dataset.target === 'editor';
+
+                    // Clear filters if coming from dashboard to show the full status block
+                    if (!isEditorActive) {
+                        document.getElementById('filterSearch').value = '';
+                        document.getElementById('filterType').value = 'all';
+                        currentFilters.search = '';
+                        currentFilters.type = 'all';
+                        currentFilters.statuses = [];
+                        document.querySelectorAll('.status-cb').forEach(cb => cb.checked = false);
+                        document.getElementById('statusFilterLabel').innerText = 'כל הסטטוסים';
+                    }
+
+                    workspaceViewLevel = 2;
+                    selectedCategoryIndex = idx;
+                    switchTab('editor'); 
+                }
+            };
+
+            window.openEditDrawerGlobal = function(projectId) {
+                openEditDrawer(projectId);
+            }
+
+            // --- Time Utilities ---
+            function getStorageKeyForDate(d) {
+                return BASE_STORAGE_KEY + d.getFullYear() + '_' + (d.getMonth() + 1).toString().padStart(2, '0');
+            }
+
+            function getMonthName(d) {
+                return new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' }).format(d);
+            }
+
+            function isPastMonth(d) {
+                const now = new Date();
+                if (d.getFullYear() < now.getFullYear()) return true;
+                if (d.getFullYear() === now.getFullYear() && d.getMonth() < now.getMonth()) return true;
+                return false;
+            }
+
+            function getThemeColors() {
+                const isDark = document.documentElement.classList.contains('dark');
+                return {
+                    text: isDark ? '#e2e8f0' : '#1e293b',
+                    gridLine: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'
+                };
+            }
+
+            function updateStorageIndicator() {
+                try {
+                    let totalBytes = 0;
+                    for(let i=0; i<localStorage.length; i++) {
+                        let key = localStorage.key(i);
+                        if(key.startsWith(BASE_STORAGE_KEY)) {
+                            totalBytes += localStorage.getItem(key).length * 2;
+                        }
+                    }
+                    const maxBytes = 5 * 1024 * 1024; // 5MB limit
+                    let percentage = (totalBytes / maxBytes) * 100;
+                    if (percentage > 100) percentage = 100;
+                    
+                    const bar = document.getElementById('storage-bar');
+                    const text = document.getElementById('storage-text');
+                    
+                    if(bar && text) {
+                        bar.style.width = percentage.toFixed(1) + '%';
+                        text.innerText = percentage.toFixed(1) + '%';
+                        
+                        if (percentage > 85) {
+                            bar.className = 'bg-red-500 h-1.5 rounded-full transition-all duration-500';
+                            text.className = 'text-red-500';
+                        } else if (percentage > 70) {
+                            bar.className = 'bg-orange-500 h-1.5 rounded-full transition-all duration-500';
+                            text.className = 'text-orange-500 dark:text-orange-400';
+                        } else {
+                            bar.className = 'bg-blue-500 h-1.5 rounded-full transition-all duration-500';
+                            text.className = '';
+                        }
+                    }
+                } catch(e) { console.warn('שגיאה בחישוב הזיכרון', e); }
+            }
+
+            function loadDataForCurrentView() {
+                const key = getStorageKeyForDate(currentViewDate);
+                const stored = localStorage.getItem(key);
+                
+                if (stored) {
+                    try {
+                        let parsed = JSON.parse(stored);
+                        if(Array.isArray(parsed)) { 
+                            appProjects = parsed.map(p => {
+                                let st = p.status ? p.status.trim() : 'טרום הריסה';
+                                let ty = p.type ? p.type.trim() : 'בניה';
+                                
+                                if (st === 'בנייה' || st === 'בנייה ') st = 'בניה';
+                                else if (st === 'בביצוע(תשתית)' || st === 'תשתיות') st = 'תשתית';
+                                else if (st === 'עיכוב') st = 'הפסקת עבודה';
+                                
+                                if (ty === 'בנייה' || ty === 'בנייה ') ty = 'בניה';
+                                
+                                p.status = st;
+                                p.type = ty;
+                                
+                                // Ensure images array exists for backward compatibility
+                                if (!p.images && p.image) {
+                                    p.images = [p.image];
+                                } else if (!p.images) {
+                                    p.images = [];
+                                }
+                                
+                                return p;
+                            });
+                        } else { appProjects = []; }
+                    } catch(e) { appProjects = []; }
+                } else {
+                    appProjects = [];
+                }
+
+                const past = isPastMonth(currentViewDate);
+                const unlocked = unlockedMonths[key] === true;
+                isReadOnly = past && !unlocked;
+
+                updateUIForDate();
+            }
+
+            function saveData() {
+                if (isReadOnly) return;
+                try {
+                    const key = getStorageKeyForDate(currentViewDate);
+                    localStorage.setItem(key, JSON.stringify(appProjects));
+                    updateStorageIndicator();
+                } catch(e) { 
+                    if (e.name === 'QuotaExceededError') {
+                        showToast('הזיכרון המקומי מלא. אנא בצע מחיקת חודשים ישנים או גיבוי נקי.', true);
+                    } else {
+                        showToast('שגיאה בשמירת נתונים מקומית.', true);
+                    }
+                }
+            }
+
+            function checkAndCarryOver() {
+                if (isPastMonth(currentViewDate) || currentViewDate > new Date()) return;
+                
+                const currentKey = getStorageKeyForDate(currentViewDate);
+                if (localStorage.getItem(currentKey)) return; 
+                
+                let tempDate = new Date(currentViewDate);
+                let foundData = null;
+                let foundDate = null;
+                
+                for(let i=0; i<6; i++) { 
+                    tempDate.setMonth(tempDate.getMonth() - 1);
+                    const prevKey = getStorageKeyForDate(tempDate);
+                    const prevDataStr = localStorage.getItem(prevKey);
+                    if (prevDataStr) {
+                        try {
+                            const parsed = JSON.parse(prevDataStr);
+                            if (parsed && parsed.length > 0) {
+                                foundData = parsed;
+                                foundDate = new Date(tempDate);
+                                break;
+                            }
+                        } catch(e) {}
+                    }
+                }
+
+                if (foundData) {
+                    document.getElementById('newMonthName').innerText = getMonthName(currentViewDate);
+                    document.getElementById('oldMonthName').innerText = getMonthName(foundDate);
+                    document.getElementById('carryOverModal').classList.remove('hidden');
+                    window._pendingCarryOverData = foundData;
+                }
+            }
+
+            function executeCarryOver() {
+                if (!window._pendingCarryOverData) return;
+                const newProjects = window._pendingCarryOverData
+                    .filter(p => p.status !== 'הסתיים ונמסר') 
+                    .map(p => ({ ...p, image: '', images: [] })); // Do not carry over images
+                    
+                appProjects = newProjects;
+                saveData();
+                loadDataForCurrentView();
+                
+                document.getElementById('carryOverModal').classList.add('hidden');
+                window._pendingCarryOverData = null;
+                showToast(`יובאו ${newProjects.length} פרויקטים בהצלחה!`);
+            }
+
+            function cancelCarryOver() {
+                appProjects = [];
+                saveData();
+                document.getElementById('carryOverModal').classList.add('hidden');
+                window._pendingCarryOverData = null;
+            }
+
+            function changeMonth(offset) {
+                currentViewDate.setMonth(currentViewDate.getMonth() + offset);
+                loadDataForCurrentView();
+                if (offset > 0) { checkAndCarryOver(); }
+            }
+
+            function unlockCurrentMonth() {
+                const key = getStorageKeyForDate(currentViewDate);
+                unlockedMonths[key] = true;
+                loadDataForCurrentView();
+                document.getElementById('unlockModal').classList.add('hidden');
+                showToast("החודש נפתח לעריכה. שים לב ששינויים ישפיעו על דוחות עבר.");
+            }
+
+            function updateUIForDate() {
+                document.getElementById('current-month-display').innerText = getMonthName(currentViewDate);
+                
+                const nextMonthBtn = document.getElementById('btn-next-month');
+                const now = new Date();
+                const isCurrentOrFuture = currentViewDate.getFullYear() > now.getFullYear() || 
+                    (currentViewDate.getFullYear() === now.getFullYear() && currentViewDate.getMonth() >= now.getMonth());
+                
+                nextMonthBtn.disabled = isCurrentOrFuture;
+
+                const roIndicator = document.getElementById('readonly-indicator');
+                const btnAdd = document.getElementById('btn-add-project');
+                
+                if (isReadOnly) {
+                    roIndicator.classList.replace('hidden', 'flex');
+                    if(btnAdd) btnAdd.classList.add('hidden');
+                } else {
+                    roIndicator.classList.replace('flex', 'hidden');
+                    if(btnAdd) btnAdd.classList.remove('hidden');
+                }
+
+                const presTitle = document.getElementById('presentation-month-title');
+                if (presTitle) presTitle.innerText = getMonthName(currentViewDate);
+
+                const activeTabEl = document.querySelector('.nav-btn.bg-blue-600');
+                if (activeTabEl) {
+                    const activeTab = activeTabEl.dataset.target;
+                    if(activeTab === 'dashboard') renderDashboard();
+                    if(activeTab === 'editor') renderEditor();
+                    if(activeTab === 'preview') renderPresentation();
+                    if(activeTab === 'reports') renderReports(); 
+                }
+            }
+
+            // --- Utilities ---
+            function adjustPreviewScale() {
+                const tab = document.getElementById('preview-tab');
+                if (!tab || tab.classList.contains('hidden')) return;
+                
+                const wrapper = document.getElementById('presentation-scale-wrapper');
+                const container = document.getElementById('presentation-container');
+                if (!wrapper || !container) return;
+                if (container.classList.contains('pdf-exporting')) return;
+                
+                const availableWidth = wrapper.parentElement.clientWidth;
+                const targetWidth = 1123;
+                
+                if (availableWidth > 0 && availableWidth < targetWidth) {
+                    const scale = availableWidth / targetWidth;
+                    container.style.transform = `scale(${scale})`;
+                    container.style.transformOrigin = 'top center';
+                    const scaledHeight = container.offsetHeight * scale;
+                    wrapper.style.height = `${scaledHeight}px`;
+                } else {
+                    container.style.transform = 'none';
+                    wrapper.style.height = 'auto';
+                }
+            }
+            window.addEventListener('resize', adjustPreviewScale);
+
+            function generateId() { return Date.now().toString() + Math.random().toString(36).substring(2, 6); }
+
+            // --- Excel Export / Import ---
+            async function downloadExcelTemplate() {
+                if (typeof ExcelJS === 'undefined' || !window.ExcelJS) return showToast('ספריית האקסל חסרה.', true);
+                try {
+                    const wb = new window.ExcelJS.Workbook();
+                    const ws = wb.addWorksheet('הזנת נתונים', { views: [{ rightToLeft: true }] });
+                    ws.columns = [ { key: 'name', width: 35 }, { key: 'contractor', width: 25 }, { key: 'type', width: 20 }, { key: 'status', width: 25 }, { key: 'description', width: 50 } ];
+                    ws.mergeCells('A1:E1');
+                    ws.getCell('A1').value = 'עדכון נתוני פיקוח - ' + getMonthName(currentViewDate);
+                    ws.getCell('A1').font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+                    ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } }; 
+                    ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+                    ws.getRow(1).height = 40;
+                    
+                    ws.mergeCells('A2:E2');
+                    ws.getCell('A2').value = 'הנחיות למפקח: נא להזין משורה 4. השתמש ברשימות הנפתחות.';
+                    ws.getCell('A2').font = { size: 11, italic: true, color: { argb: 'FF475569' } };
+                    ws.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; 
+                    ws.getRow(3).values = ['* שם הפרויקט / רחוב', 'קבלן מבצע', '* סוג פרויקט (בניה/תשתית)', '* סטטוס הנדסי', 'מהות העבודה (תמצית הנדסית)'];
+                    ws.getRow(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    ws.getRow(3).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } }; cell.alignment = { horizontal: 'center' }; });
+                    
+                    for (let i = 4; i <= 100; i++) {
+                        ws.getCell(`C${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"בניה,תשתית"'] };
+                        ws.getCell(`D${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`"${STATUS_OPTIONS.join(',')}"`] };
+                    }
+                    
+                    ws.addRow(['דוגמה: ויצמן 22', 'דניה', 'בניה', 'חפירה ודיפון', 'שלב דיפון וחפירה']).font = { color: { argb: 'FF64748B' }, italic: true };
+                    
+                    const buffer = await wb.xlsx.writeBuffer();
+                    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a'); link.href = url; link.download = 'תבנית_נתונים.xlsx';
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                } catch(err) { showToast('שגיאה ביצירת הקובץ.', true); }
+            }
+
+            async function exportDataToExcel() {
+                if (appProjects.length === 0) return showToast('אין נתונים לייצוא.', true);
+                if (typeof ExcelJS === 'undefined' || !window.ExcelJS) return showToast('ספריית האקסל לא נטענה.', true);
+                try {
+                    const wb = new window.ExcelJS.Workbook();
+                    const ws = wb.addWorksheet('נתוני פרויקטים', { views: [{ rightToLeft: true }] });
+                    ws.columns = [
+                        { header: 'שם הפרויקט / רחוב', key: 'name', width: 35 },
+                        { header: 'קבלן מבצע', key: 'contractor', width: 25 },
+                        { header: 'סוג פרויקט', key: 'type', width: 20 },
+                        { header: 'סטטוס הנדסי', key: 'status', width: 25 },
+                        { header: 'מהות העבודה', key: 'description', width: 50 }
+                    ];
+                    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+                    ws.getRow(1).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }; });
+                    
+                    appProjects.forEach(p => ws.addRow({ name: p.name, contractor: p.contractor, type: p.type, status: p.status, description: p.description }));
+                    
+                    const buffer = await wb.xlsx.writeBuffer();
+                    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a'); link.href = url; 
+                    const mName = getMonthName(currentViewDate).replace(' ', '_');
+                    link.download = `ייצוא_${mName}.xlsx`;
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                    showToast('הנתונים יוצאו בהצלחה!');
+                } catch (err) { showToast('שגיאה בייצוא.', true); }
+            }
+
+            async function handleExcelUpload(e) {
+                if (isReadOnly) {
+                    showToast('חודש זה סגור לעריכה. פתח לעריכה קודם.', true);
+                    e.target.value = ''; return;
+                }
+                const file = e.target.files[0];
+                if (!file) return;
+                if (typeof ExcelJS === 'undefined' || !window.ExcelJS) return showToast('שגיאת ספריה.', true);
+
+                try {
+                    const wb = new window.ExcelJS.Workbook();
+                    await wb.xlsx.load(await file.arrayBuffer());
+                    const ws = wb.worksheets[0]; 
+                    const newProjects = [];
+                    
+                    ws.eachRow((row, rowNumber) => {
+                        if (rowNumber >= 4) {
+                            const name = row.getCell(1).text;
+                            if (name && name.trim() !== '' && !name.includes('דוגמה:')) {
+                                let rawType = row.getCell(3).text?.trim() || '';
+                                let finalType = (rawType === 'תשתית' || rawType === 'בביצוע(תשתית)' || rawType === 'תשתיות') ? 'תשתית' : 'בניה';
+
+                                let rawStatus = row.getCell(4).text?.trim() || 'טרום הריסה';
+                                if (rawStatus === 'בנייה' || rawStatus === 'בנייה ') rawStatus = 'בניה';
+                                else if (rawStatus === 'בביצוע(תשתית)' || rawStatus === 'תשתיות') rawStatus = 'תשתית';
+                                else if (rawStatus === 'עיכוב') rawStatus = 'הפסקת עבודה';
+                                
+                                if (!STATUS_OPTIONS.includes(rawStatus)) {
+                                    if(rawStatus.includes('בני')) rawStatus = 'בניה';
+                                    else if(rawStatus.includes('תשתית')) rawStatus = 'תשתית';
+                                    else if(rawStatus.includes('סיום')) rawStatus = 'דיווח סיום פרויקט';
+                                    else rawStatus = 'טרום הריסה';
+                                }
+
+                                newProjects.push({
+                                    id: generateId(),
+                                    name: name.trim(),
+                                    contractor: row.getCell(2).text?.trim() || '',
+                                    type: finalType,
+                                    status: rawStatus,
+                                    description: row.getCell(5).text?.trim() || '',
+                                    image: '',
+                                    images: []
+                                });
+                            }
+                        }
+                    });
+                    
+                    if (newProjects.length > 0) {
+                        let added = 0;
+                        newProjects.forEach(np => {
+                            if(!appProjects.some(p => p.name === np.name)) {
+                                appProjects.unshift(np); added++;
+                            }
+                        });
+                        if (added > 0) {
+                            saveData();
+                            updateUIForDate();
+                        }
+                        showToast(`נטענו ${added} פרויקטים חדשים.`);
+                    } else { showToast('לא נמצאו נתונים בקובץ.', true); }
+                } catch (error) { showToast('שגיאה בקריאת הקובץ.', true); }
+                e.target.value = ''; 
+            }
+
+            // --- PDF Direct Download Logic ---
+            function downloadPDF() {
+                if (appProjects.length === 0) return showToast('אין נתונים להורדה לחודש זה.', true);
+                if (document.getElementById('preview-tab').classList.contains('hidden')) {
+                    switchTab('preview');
+                    showToast('מכין נתונים ל-PDF...', false);
+                    setTimeout(() => { executePDFDownload(); }, 800); 
+                } else { executePDFDownload(); }
+            }
+
+            function executePDFDownload() {
+                if (typeof html2pdf === 'undefined') return showToast('שגיאת ספריה.', true);
+                
+                showToast('מייצר קובץ PDF... אנא המתן', false);
+                const container = document.getElementById('presentation-container');
+                const wrapper = document.getElementById('presentation-scale-wrapper');
+                
+                container.style.transform = 'none';
+                wrapper.style.height = 'auto';
+                container.classList.add('pdf-exporting');
+
+                let modifiedTextNodes = [];
+                const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.parentElement && ['SCRIPT', 'STYLE'].includes(node.parentElement.tagName)) continue;
+                    const text = node.nodeValue;
+                    if (text.includes('(') || text.includes(')') || text.includes('[') || text.includes(']')) {
+                        modifiedTextNodes.push({ node: node, originalText: text });
+                        let newText = '';
+                        for (let i = 0; i < text.length; i++) {
+                            if (text[i] === '(') newText += ')';
+                            else if (text[i] === ')') newText += '(';
+                            else if (text[i] === '[') newText += ']';
+                            else if (text[i] === ']') newText += ']';
+                            else newText += text[i];
+                        }
+                        node.nodeValue = newText;
+                    }
+                }
+
+                const mName = getMonthName(currentViewDate).replace(' ', '_');
+                const opt = {
+                    margin:       0,
+                    filename:     `דוח_פיקוח_${currentRegionName}_${mName}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 }, 
+                    html2canvas:  { scale: 2, useCORS: true },
+                    jsPDF:        { unit: 'px', format: [1123, 794], orientation: 'landscape' }
+                };
+
+                html2pdf().set(opt).from(container).save().then(() => {
+                    modifiedTextNodes.forEach(item => { item.node.nodeValue = item.originalText; });
+                    container.classList.remove('pdf-exporting');
+                    adjustPreviewScale();
+                    showToast('הקובץ הורד בהצלחה!');
+                }).catch(err => {
+                    modifiedTextNodes.forEach(item => { item.node.nodeValue = item.originalText; });
+                    container.classList.remove('pdf-exporting');
+                    adjustPreviewScale();
+                    showToast('שגיאה ביצירת ה-PDF', true);
+                });
+            }
+
+            function switchTab(tabId) {
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    if(btn.dataset.target === tabId) {
+                        btn.className = "nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all bg-blue-600 text-white shadow-md";
+                    } else {
+                        btn.className = "nav-btn w-full flex items-center gap-3 py-3 rounded-xl transition-all text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800";
+                    }
+                });
+
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.add('hidden');
+                    tab.classList.remove('flex');
+                });
+                
+                const targetTab = document.getElementById(tabId + '-tab');
+                if (targetTab) {
+                    targetTab.classList.remove('hidden');
+                    targetTab.classList.add('flex');
+                }
+
+                const scrollArea = document.getElementById('main-scroll-area');
+                if (scrollArea) scrollArea.scrollTop = 0;
+
+                const floatingBtn = document.getElementById('floating-print-btn');
+                if (floatingBtn) {
+                    if(tabId === 'preview') floatingBtn.classList.remove('hidden');
+                    else floatingBtn.classList.add('hidden');
+                }
+
+                if(tabId === 'preview') renderPresentation();
+                if(tabId === 'editor') renderEditor();
+                if(tabId === 'dashboard') renderDashboard();
+                if(tabId === 'reports') renderReports(); 
+            }
+
+            // --- Reports Internal Tabs Switching ---
+            function switchInternalReportTab(targetId) {
+                // Update buttons
+                document.querySelectorAll('.inner-report-btn').forEach(btn => {
+                    if (btn.dataset.target === targetId) {
+                        btn.classList.add('active', 'text-blue-600', 'border-blue-600', 'dark:text-blue-400', 'dark:border-blue-400');
+                        btn.classList.remove('text-slate-500', 'border-transparent');
+                    } else {
+                        btn.classList.remove('active', 'text-blue-600', 'border-blue-600', 'dark:text-blue-400', 'dark:border-blue-400');
+                        btn.classList.add('text-slate-500', 'border-transparent');
+                    }
+                });
+
+                // Update content visibility
+                document.querySelectorAll('.inner-report-content').forEach(content => {
+                    if (content.id === targetId) {
+                        content.classList.remove('hidden');
+                        if(targetId === 'rep-movements') content.classList.add('flex');
+                    } else {
+                        content.classList.add('hidden');
+                        content.classList.remove('flex');
+                    }
+                });
+            }
+
+            function updateFilters() {
+                const searchEl = document.getElementById('filterSearch');
+                const typeEl = document.getElementById('filterType');
+
+                currentFilters.search = searchEl ? searchEl.value.toLowerCase() : '';
+                currentFilters.type = typeEl ? typeEl.value : 'all';
+                
+                renderEditor();
+            }
+
+            function getProcessedData() {
+                const archivedCount = appProjects.filter(p => p && p.status === 'הסתיים ונמסר').length;
+                const activeProjectsList = appProjects.filter(p => p && p.status !== 'הסתיים ונמסר');
+                
+                const buildingProjects = activeProjectsList.filter(p => p.type === 'בניה');
+                const infraProjects = activeProjectsList.filter(p => p.type === 'תשתית');
+
+                const activeBuildStages = ['הריסה', 'חפירה ודיפון', 'בניה', 'פיתוח מרחב ציבורי', 'דיווח סיום פרויקט', 'הפסקת עבודה', 'טרום הריסה', 'אתר חדש ללא הריסה'];
+                const activeCount = buildingProjects.filter(p => activeBuildStages.includes(p.status)).length;
+                
+                const stage1 = buildingProjects.filter(p => p.status === 'טרום הריסה').length;
+                const stage2 = buildingProjects.filter(p => ['הריסה', 'אתר חדש ללא הריסה'].includes(p.status)).length;
+                const stage3 = buildingProjects.filter(p => p.status === 'חפירה ודיפון').length;
+                const stage4 = buildingProjects.filter(p => p.status === 'בניה').length;
+                const stage5 = buildingProjects.filter(p => p.status === 'פיתוח מרחב ציבורי').length;
+                
+                const stagePaused = buildingProjects.filter(p => p.status === 'הפסקת עבודה').length;
+                const stageFinishing = buildingProjects.filter(p => p.status === 'דיווח סיום פרויקט').length;
+
+                const streetCounts = {};
+                activeProjectsList.forEach(p => {
+                    const name = p ? (p.name || '') : '';
+                    const street = name.replace(/[0-9].*/, '').trim();
+                    if (street.length > 2) { 
+                        if (!streetCounts[street]) streetCounts[street] = [];
+                        streetCounts[street].push({ name: name, status: p.status });
+                    }
+                });
+                
+                const highDensity = Object.entries(streetCounts)
+                    .filter(x => x[1].length > 1) 
+                    .map(x => ({ name: x[0], count: x[1].length, sites: x[1] }))
+                    .sort((a,b) => b.count - a.count)
+                    .slice(0, 5); 
+
+                return {
+                    total: activeProjectsList.length, active: activeCount,
+                    buildingTotal: buildingProjects.length,
+                    stage1, stage2, stage3, stage4, stage5, stagePaused, stageFinishing,
+                    highDensity, infraProjects, archivedTotal: archivedCount
+                };
+            }
+
+            // --- Reports Generation ---
+            function initCompareMonthMultiSelect() {
+                const container = document.getElementById('compareMonthCheckboxes');
+                if(!container) return;
+                container.innerHTML = '';
+                
+                // Add checkboxes for last 6 months
+                for(let i=0; i<=6; i++) {
+                    let d = new Date(currentViewDate);
+                    d.setMonth(d.getMonth() - i);
+                    const name = getMonthName(d);
+                    const isChecked = selectedCompareOffsets.includes(i) ? 'checked' : '';
+                    
+                    container.innerHTML += `
+                        <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer dark:hover:bg-slate-700">
+                            <input type="checkbox" value="${i}" class="compare-month-cb w-4 h-4 text-purple-600 rounded focus:ring-purple-500" ${isChecked}>
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">${name}</span>
+                        </label>
+                    `;
+                }
+
+                document.querySelectorAll('.compare-month-cb').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const checked = Array.from(document.querySelectorAll('.compare-month-cb:checked')).map(el => parseInt(el.value));
+                        if (checked.length === 0) {
+                            cb.checked = true; // Prevent unchecking all
+                            return;
+                        }
+                        selectedCompareOffsets = checked.sort((a,b) => b - a); // Oldest first
+                        renderReports();
+                    });
+                });
+            }
+
+            function renderReports() {
+                const monthTitle = document.getElementById('reports-month-title');
+                if (monthTitle) monthTitle.innerText = getMonthName(currentViewDate);
+
+                initCompareMonthMultiSelect();
+                
+                const label = document.getElementById('compareMonthLabel');
+                if (label) {
+                    label.innerText = selectedCompareOffsets.length === 1 ? 'חודש אחד נבחר' : `${selectedCompareOffsets.length} חודשים נבחרו`;
+                }
+
+                const themeColors = getThemeColors();
+
+                // 1. Fetch historical data for main trend chart (last 6 months)
+                const historyData = [];
+                const labels = [];
+                for (let i = 5; i >= 0; i--) {
+                    let d = new Date(currentViewDate);
+                    d.setMonth(d.getMonth() - i);
+                    const key = getStorageKeyForDate(d);
+                    const monthLabel = new Intl.DateTimeFormat('he-IL', { month: 'short' }).format(d);
+                    
+                    let data = [];
+                    if (i === 0) {
+                        data = appProjects; 
+                    } else {
+                        const stored = localStorage.getItem(key);
+                        if (stored) {
+                            try { data = JSON.parse(stored); } catch(e) {}
+                        }
+                    }
+                    
+                    const activeCount = data.filter(p => p && p.status !== 'הסתיים ונמסר').length;
+                    
+                    historyData.push(activeCount);
+                    labels.push(monthLabel);
+                }
+
+                // 2. Fetch data for KPI & Transitions (Comparing Current vs First selected older month, or 1)
+                let baseCompareOffset = selectedCompareOffsets.find(off => off > 0) || 1;
+                let prevDate = new Date(currentViewDate);
+                prevDate.setMonth(prevDate.getMonth() - baseCompareOffset);
+                const prevKey = getStorageKeyForDate(prevDate);
+                let prevProjects = [];
+                const prevStored = localStorage.getItem(prevKey);
+                if (prevStored) {
+                    try { prevProjects = JSON.parse(prevStored); } catch(e) {}
+                }
+
+                // 3. Calculate KPIs
+                const currentActive = appProjects.filter(p => p && p.status !== 'הסתיים ונמסר');
+                const prevActive = prevProjects.filter(p => p && p.status !== 'הסתיים ונמסר');
+                
+                const netChange = currentActive.length - prevActive.length;
+                
+                const prevIds = new Set(prevProjects.map(p => String(p.id)));
+                const newSites = currentActive.filter(p => !prevIds.has(String(p.id)));
+                
+                let finishedCount = 0;
+                appProjects.forEach(p => {
+                    if (p.status === 'הסתיים ונמסר') {
+                        const prevP = prevProjects.find(prev => String(prev.id) === String(p.id));
+                        if (!prevP || prevP.status !== 'הסתיים ונמסר') finishedCount++;
+                    }
+                });
+                prevActive.forEach(p => {
+                    const currP = appProjects.find(cp => String(cp.id) === String(p.id));
+                    if (!currP) finishedCount++;
+                });
+
+                // Transitions
+                const transitions = [];
+                prevProjects.forEach(prevP => {
+                    if (prevP.status === 'הסתיים ונמסר') return; 
+                    
+                    const currP = appProjects.find(cp => String(cp.id) === String(prevP.id));
+                    if (currP && currP.status !== prevP.status) {
+                        transitions.push({ name: currP.name, from: prevP.status, to: currP.status });
+                    } else if (!currP) {
+                        transitions.push({ name: prevP.name, from: prevP.status, to: 'הוסר מהמערכת' });
+                    }
+                });
+
+                // 4. Update KPI DOM
+                const newSitesEl = document.getElementById('report-new-sites-count');
+                if (newSitesEl) newSitesEl.innerText = newSites.length;
+                
+                const finishedSitesEl = document.getElementById('report-finished-sites-count');
+                if (finishedSitesEl) finishedSitesEl.innerText = finishedCount;
+                
+                const netEl = document.getElementById('report-net-change');
+                if (netEl) {
+                    netEl.innerText = (netChange > 0 ? '+' : '') + netChange;
+                    netEl.className = `text-4xl font-black ${netChange > 0 ? 'text-blue-600 dark:text-blue-400' : (netChange < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400')}`;
+                }
+                
+                const transList = document.getElementById('report-transitions-list');
+                if (transList) {
+                    if (transitions.length === 0) {
+                        transList.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400 font-bold bg-slate-50 dark:bg-slate-900 rounded-2xl h-full flex items-center justify-center">לא תועדו שינויי סטטוס לעומת החודש שנבחר להשוואה.</div>`;
+                    } else {
+                        transList.innerHTML = transitions.map(t => `
+                            <div class="flex flex-col gap-2 p-4 border border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-900 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all h-fit">
+                                <div class="font-extrabold text-slate-800 dark:text-slate-200 text-lg leading-tight">${escapeHTML(t.name)}</div>
+                                <div class="flex items-center gap-2 text-xs font-bold mt-1">
+                                    <span class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md text-center flex-1 truncate" title="${escapeHTML(t.from)}">${escapeHTML(t.from)}</span>
+                                    <i class="fas fa-arrow-left text-blue-400 shrink-0"></i>
+                                    <span class="bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-md text-center flex-1 truncate" title="${escapeHTML(t.to)}">${escapeHTML(t.to)}</span>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+
+                // 5. Render Main Trend Chart (Line)
+                const ctx = document.getElementById('trendChart');
+                if (ctx) {
+                    if (window.reportsChartInstance) window.reportsChartInstance.destroy();
+                    
+                    window.reportsChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'סה"כ פעילים',
+                                data: historyData,
+                                borderColor: '#3B82F6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                borderWidth: 4,
+                                pointBackgroundColor: '#2563EB',
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 2,
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 35 } }, // Fix numbers cutoff
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    titleFont: { family: 'Assistant', size: 14 },
+                                    bodyFont: { family: 'Assistant', size: 14 },
+                                    rtl: true
+                                },
+                                datalabels: {
+                                    display: true,
+                                    align: 'top',
+                                    color: themeColors.text,
+                                    font: { weight: 'bold', size: 14, family: 'Assistant' },
+                                    formatter: function(value) { return value > 0 ? value : ''; }
+                                }
+                            },
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    suggestedMax: Math.max(...historyData, 10) + Math.ceil(Math.max(...historyData, 10) * 0.2), // Adds 20% breathing room
+                                    grid: { color: themeColors.gridLine },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold' }, stepSize: 5 }
+                                },
+                                x: { 
+                                    grid: { display: false },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold', size: 13 } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 6. Render Status Comparison Chart (Bar) - Multi-Select implementation
+                const statusLabels = ['טרום הריסה', 'הריסה', 'דיפון', 'בניה', 'גמרים', 'תשתית', 'הפסקה'];
+                const mapStatus = (s) => {
+                    if(s==='טרום הריסה') return 0;
+                    if(s==='הריסה' || s==='אתר חדש ללא הריסה') return 1;
+                    if(s==='חפירה ודיפון') return 2;
+                    if(s==='בניה') return 3;
+                    if(s==='פיתוח מרחב ציבורי') return 4;
+                    if(s==='תשתית') return 5;
+                    if(s==='הפסקת עבודה') return 6;
+                    return -1;
+                };
+
+                const barDatasets = [];
+                const colorsArr = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#64748B', '#14B8A6']; 
+                let maxBarValue = 0;
+
+                selectedCompareOffsets.forEach((offset, index) => {
+                    let d = new Date(currentViewDate);
+                    d.setMonth(d.getMonth() - offset);
+                    const dsName = getMonthName(d);
+                    const storageKey = getStorageKeyForDate(d);
+                    
+                    let dataForMonth = [];
+                    if (offset === 0) {
+                        dataForMonth = appProjects;
+                    } else {
+                        const sd = localStorage.getItem(storageKey);
+                        if(sd) { try { dataForMonth = JSON.parse(sd); } catch(e){} }
+                    }
+                    
+                    const activeForMonth = dataForMonth.filter(p => p && p.status !== 'הסתיים ונמסר');
+                    const counts = [0,0,0,0,0,0,0];
+                    activeForMonth.forEach(p => { let idx = mapStatus(p.status); if(idx>=0) counts[idx]++; });
+                    
+                    const localMax = Math.max(...counts);
+                    if(localMax > maxBarValue) maxBarValue = localMax;
+
+                    barDatasets.push({
+                        label: dsName,
+                        data: counts,
+                        backgroundColor: colorsArr[index % colorsArr.length],
+                        borderRadius: 4
+                    });
+                });
+
+                const barCtx = document.getElementById('comparisonBarChart');
+                if (barCtx) {
+                    if (window.reportsBarChartInstance) window.reportsBarChartInstance.destroy();
+                    
+                    window.reportsBarChartInstance = new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: statusLabels,
+                            datasets: barDatasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 35 } },
+                            plugins: {
+                                legend: { 
+                                    position: 'top', 
+                                    labels: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold' } } 
+                                },
+                                tooltip: {
+                                    titleFont: { family: 'Assistant', size: 14 },
+                                    bodyFont: { family: 'Assistant', size: 14 },
+                                    rtl: true
+                                },
+                                datalabels: { display: false } // Hidden here to prevent clutter
+                            },
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    suggestedMax: maxBarValue + Math.ceil(maxBarValue * 0.2),
+                                    grid: { color: themeColors.gridLine },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold' }, stepSize: 2 }
+                                },
+                                x: { 
+                                    grid: { display: false },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold', size: 12 } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 7. NEW: Inflow / Outflow Chart (Movements Tab)
+                const ioCtx = document.getElementById('inflowOutflowChart');
+                if (ioCtx) {
+                    if (window.reportsInOutChartInstance) window.reportsInOutChartInstance.destroy();
+                    
+                    const maxInOutValue = Math.max(newSites.length, transitions.length, finishedCount, 5);
+
+                    window.reportsInOutChartInstance = new Chart(ioCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['נוספו (אתרים חדשים)', 'התקדמו שלב (תנועה פנימית)', 'נמסרו/הוסרו'],
+                            datasets: [{
+                                label: 'כמות אתרים',
+                                data: [newSites.length, transitions.length, finishedCount],
+                                backgroundColor: [
+                                    'rgba(59, 130, 246, 0.8)', // Blue
+                                    'rgba(245, 158, 11, 0.8)', // Orange
+                                    'rgba(148, 163, 184, 0.8)' // Gray
+                                ],
+                                borderColor: [
+                                    'rgb(37, 99, 235)',
+                                    'rgb(217, 119, 6)',
+                                    'rgb(100, 116, 139)'
+                                ],
+                                borderWidth: 2,
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 35 } },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    titleFont: { family: 'Assistant', size: 14 },
+                                    bodyFont: { family: 'Assistant', size: 14 },
+                                    rtl: true
+                                },
+                                datalabels: {
+                                    display: true,
+                                    color: themeColors.text,
+                                    anchor: 'end',
+                                    align: 'top',
+                                    font: { weight: 'bold', size: 16, family: 'Assistant' },
+                                    formatter: function(value) { return value > 0 ? value : ''; }
+                                }
+                            },
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    suggestedMax: maxInOutValue + Math.ceil(maxInOutValue * 0.25),
+                                    grid: { color: themeColors.gridLine },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold' }, stepSize: 1 }
+                                },
+                                x: { 
+                                    grid: { display: false },
+                                    ticks: { color: themeColors.text, font: { family: 'Assistant', weight: 'bold', size: 14 } }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            function renderDashboard() {
+                const data = getProcessedData();
+                const topStats = document.getElementById('dashboard-top-stats');
+                
+                if (topStats) {
+                    topStats.innerHTML = `
+                        <div onclick="filterWorkspaceFromDashboard('all')" class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 border-r-4 border-r-slate-800 dark:border-r-slate-400 flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all group">
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-1 font-bold group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">סה"כ פעילים בפיקוח</p>
+                            <p class="text-4xl font-black text-slate-800 dark:text-slate-100">${data.total}</p>
+                        </div>
+                        <div onclick="filterWorkspaceFromDashboard('בניה')" class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 border-r-4 border-r-blue-500 flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all group">
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-1 font-bold group-hover:text-blue-600 transition-colors">אתרי בניה תחת פיקוח</p>
+                            <p class="text-4xl font-black text-blue-600 dark:text-blue-400">${data.buildingTotal}</p>
+                        </div>
+                        <div onclick="goToWorkspaceStatus('תשתית')" class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 border-r-4 border-r-orange-500 flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all group">
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-1 font-bold group-hover:text-orange-600 transition-colors">פרויקטי תשתית</p>
+                            <p class="text-4xl font-black text-orange-600 dark:text-orange-400">${data.infraProjects.length}</p>
+                        </div>
+                        <div onclick="goToWorkspaceStatus('ארכיון מסירות')" class="bg-slate-100 dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 border-r-4 border-r-slate-400 flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all group">
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-1 font-bold group-hover:text-slate-700 transition-colors">הסתיימו ונמסרו (היסטורי)</p>
+                            <p class="text-4xl font-black text-slate-700 dark:text-slate-300">${data.archivedTotal}</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('pipe-stage-1').innerText = data.stage1;
+                document.getElementById('pipe-stage-2').innerText = data.stage2;
+                document.getElementById('pipe-stage-3').innerText = data.stage3;
+                document.getElementById('pipe-stage-4').innerText = data.stage4;
+                document.getElementById('pipe-stage-5').innerText = data.stage5;
+                document.getElementById('pipe-stage-paused').innerText = data.stagePaused;
+                document.getElementById('pipe-stage-finishing').innerText = data.stageFinishing;
+
+                const densityList = document.getElementById('density-list');
+                if (densityList) {
+                    if (data.highDensity.length === 0) {
+                        densityList.innerHTML = `<div class="text-center text-slate-400 py-10 font-bold">לא נמצאו רחובות עמוסים</div>`;
+                    } else {
+                        const maxCount = data.highDensity[0].count;
+                        densityList.innerHTML = data.highDensity.map((street, idx) => {
+                            const theme = CARD_THEMES[idx % CARD_THEMES.length];
+                            const pct = Math.max(10, (street.count / maxCount) * 100);
+                            return `
+                            <div class="mb-3">
+                                <div class="flex justify-between items-end mb-1 px-1">
+                                    <span class="font-bold text-slate-700 dark:text-slate-200">${escapeHTML(street.name)}</span>
+                                    <span class="text-xs font-black ${theme.textNum}">${street.count} אתרים</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-600">
+                                    <div class="${theme.barColor} h-full rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            }
+
+            function renderEditor() {
+                const data = getProcessedData();
+                
+                if (workspaceViewLevel === 1) {
+                    document.getElementById('workspace-breadcrumbs').classList.add('hidden');
+                    document.getElementById('workspace-level-2').classList.add('hidden');
+                    document.getElementById('workspace-level-1').classList.remove('hidden');
+                    renderWorkspaceCategories();
+                } else {
+                    document.getElementById('workspace-breadcrumbs').classList.remove('hidden');
+                    document.getElementById('workspace-level-1').classList.add('hidden');
+                    document.getElementById('workspace-level-2').classList.remove('hidden');
+                    renderWorkspaceProjects();
+                }
+            }
+
+            function renderWorkspaceCategories() {
+                const container = document.getElementById('workspace-level-1');
+                if(!container) return;
+                container.innerHTML = '';
+                
+                const categories = [ ...KANBAN_COLUMNS ];
+                categories.push({ id: 'col-archive', title: 'ארכיון מסירות', statuses: ['הסתיים ונמסר'], color: 'bg-slate-200 border-t-slate-800 dark:bg-slate-800 dark:border-t-slate-500', icon: 'fa-archive', iconColor: 'text-slate-700 dark:text-slate-400' });
+                
+                categories.forEach((cat, index) => {
+                    let count = 0;
+                    appProjects.forEach(p => {
+                        if (p && cat.statuses.includes(p.status)) {
+                            const matchSearch = (p.name || '').toLowerCase().includes(currentFilters.search) || 
+                                                (p.contractor && p.contractor.toLowerCase().includes(currentFilters.search));
+                            const matchType = currentFilters.type === 'all' || p.type === currentFilters.type;
+                            const matchStatus = currentFilters.statuses.length === 0 || currentFilters.statuses.includes(index);
+                            
+                            if (matchSearch && matchType && matchStatus) count++;
+                        }
+                    });
+                    
+                    // Hide category if multi-select filter is active and this category is not selected
+                    if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(index) && index !== categories.length - 1) {
+                        return; // skip rendering
+                    }
+
+                    container.innerHTML += `
+                        <div onclick="goToWorkspaceStatus('${cat.title}')" class="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 text-center min-h-[160px] group">
+                            <div class="w-16 h-16 rounded-2xl ${cat.color.split(' ')[0]} flex items-center justify-center text-3xl mb-2 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fas ${cat.icon} ${cat.iconColor}"></i>
+                            </div>
+                            <h3 class="font-black text-xl text-slate-800 dark:text-slate-100">${cat.title}</h3>
+                            <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold px-4 py-1.5 rounded-full">${count} פרויקטים</span>
+                        </div>
+                    `;
+                });
+            }
+
+            function renderWorkspaceProjects() {
+                const container = document.getElementById('workspace-projects-grid');
+                if(!container) return;
+                
+                const categories = [ ...KANBAN_COLUMNS ];
+                categories.push({ id: 'col-archive', title: 'ארכיון מסירות', statuses: ['הסתיים ונמסר'], color: 'bg-slate-200 border-t-slate-800', icon: 'fa-archive', iconColor: 'text-slate-700' });
+                
+                const activeCat = categories[selectedCategoryIndex];
+                if (!activeCat) { goToWorkspaceLevel1(); return; }
+
+                document.getElementById('workspace-current-status').innerText = activeCat.title;
+
+                let projects = appProjects.filter(p => p && activeCat.statuses.includes(p.status));
+                
+                projects = projects.filter(p => {
+                    const matchSearch = (p.name || '').toLowerCase().includes(currentFilters.search) || 
+                                        (p.contractor && p.contractor.toLowerCase().includes(currentFilters.search));
+                    const matchType = currentFilters.type === 'all' || p.type === currentFilters.type;
+                    return matchSearch && matchType;
+                });
+
+                container.innerHTML = '';
+
+                if (projects.length === 0) {
+                    container.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-bold text-xl"><i class="fas ${activeCat.icon} text-4xl mb-4 block opacity-50"></i> אין פרויקטים להצגה תחת סטטוס זה.</div>`;
+                    return;
+                }
+
+                projects.forEach(p => {
+                    // Using the first image for the grid preview
+                    const mainImage = (p.images && p.images.length > 0) ? p.images[0] : (p.image || '');
+                    const hasImage = !!mainImage;
+                    
+                    const catColors = activeCat.color.split(' ');
+                    const bgCol = catColors[0] || 'bg-slate-100';
+                    
+                    container.innerHTML += `
+                        <div class="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:-translate-y-1 transition-all group flex flex-col cursor-pointer relative" onclick="openEditDrawerGlobal('${p.id}')">
+                            ${!isReadOnly ? `<button type="button" data-action="delete" data-project-id="${p.id}" onclick="event.stopPropagation();" class="absolute top-2 left-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 rounded-full w-8 h-8 flex items-center justify-center z-10 shadow-sm" title="מחק"><i class="fas fa-trash-alt text-sm pointer-events-none"></i></button>` : ''}
+                            <div class="h-36 ${bgCol} relative overflow-hidden flex items-center justify-center border-b border-slate-100 dark:border-slate-700/50 p-2">
+                                ${hasImage ? `<img src="${mainImage}" class="w-full h-full object-cover rounded-2xl drop-shadow-sm">` : `<div class="w-full h-full flex flex-col items-center justify-center"><i class="fas ${activeCat.icon} ${activeCat.iconColor} text-5xl opacity-40"></i></div>`}
+                                <div class="absolute bottom-3 right-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-black text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200/50 dark:border-slate-600/50">
+                                    ${escapeHTML(p.status)}
+                                </div>
+                            </div>
+                            <div class="p-5 flex-1 flex flex-col gap-2">
+                                <h4 class="font-extrabold text-lg text-slate-800 dark:text-slate-100 leading-tight pr-1">${escapeHTML(p.name)}</h4>
+                                <div class="text-sm font-bold text-slate-500 flex items-center gap-2 mt-auto pt-3 border-t border-slate-100 dark:border-slate-700">
+                                    <i class="fas fa-user-helmet text-slate-400"></i> <span class="truncate dark:text-slate-300">${escapeHTML(p.contractor || 'קבלן לא הוזן')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // --- Drawer Images Gallery Logic ---
+            function renderDrawerGallery() {
+                const grid = document.getElementById('drawerGalleryGrid');
+                if (currentDrawerImages.length === 0) {
+                    grid.classList.add('hidden');
+                    return;
+                }
+                
+                grid.classList.remove('hidden');
+                grid.innerHTML = currentDrawerImages.map((imgSrc, index) => `
+                    <div class="relative group rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-100 flex items-center justify-center dark:border-slate-700 shadow-sm">
+                        <img src="${imgSrc}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openLightbox('${imgSrc}')" title="לחץ להגדלה">
+                        ${!isReadOnly ? `
+                        <button type="button" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow" onclick="removeDrawerImage(${index})" title="הסר תמונה">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                        ` : ''}
+                        ${index === 0 ? `<div class="absolute bottom-0 left-0 right-0 bg-blue-600/90 text-white text-[10px] text-center font-bold py-0.5">ראשי</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            
+            window.removeDrawerImage = function(index) {
+                if(isReadOnly) return;
+                currentDrawerImages.splice(index, 1);
+                renderDrawerGallery();
+            };
+            
+            window.openLightbox = function(src) {
+                document.getElementById('lightboxImage').src = src;
+                document.getElementById('lightboxModal').classList.remove('hidden');
+            };
+
+            // Open Edit Drawer
+            function openEditDrawer(projectId = null) {
+                const drawer = document.getElementById('editProjectDrawer');
+                const modal = document.getElementById('editProjectModal');
+                
+                document.getElementById('editProjectId').value = '';
+                document.getElementById('editProjectName').value = '';
+                document.getElementById('editProjectContractor').value = '';
+                document.getElementById('editProjectType').value = 'בניה';
+                document.getElementById('editProjectStatus').value = 'טרום הריסה';
+                document.getElementById('editProjectDescription').value = '';
+                
+                currentDrawerImages = [];
+                renderDrawerGallery();
+                
+                editingProjectId = projectId;
+
+                const inputs = ['editProjectName', 'editProjectContractor', 'editProjectType', 'editProjectStatus', 'editProjectDescription'];
+                inputs.forEach(id => document.getElementById(id).disabled = isReadOnly);
+                
+                const pdfBtn = document.getElementById('btn-extract-pdf');
+                
+                if (isReadOnly) {
+                    document.getElementById('drawerFooterActions').classList.add('hidden');
+                    document.getElementById('drawerFooterReadOnly').classList.remove('hidden');
+                    document.getElementById('mediaActionsContainer').classList.add('hidden');
+                } else {
+                    document.getElementById('drawerFooterActions').classList.remove('hidden');
+                    document.getElementById('drawerFooterReadOnly').classList.add('hidden');
+                    document.getElementById('mediaActionsContainer').classList.remove('hidden');
+                    
+                    // Defaults for new project
+                    pdfBtn.classList.add('hidden');
+                }
+
+                if (projectId) {
+                    const p = appProjects.find(x => String(x.id) === String(projectId));
+                    if (p) {
+                        document.getElementById('editProjectId').value = p.id;
+                        document.getElementById('editProjectName').value = p.name || '';
+                        document.getElementById('editProjectContractor').value = p.contractor || '';
+                        document.getElementById('editProjectType').value = p.type || 'בניה';
+                        document.getElementById('editProjectStatus').value = p.status || 'טרום הריסה';
+                        document.getElementById('editProjectDescription').value = p.description || '';
+                        
+                        if (p.images && p.images.length > 0) {
+                            currentDrawerImages = [...p.images];
+                        } else if (p.image) {
+                            // Backwards compatibility
+                            currentDrawerImages = [p.image];
+                        }
+                        renderDrawerGallery();
+                        
+                        // Show PDF button only if it's an Infra project AND not readonly
+                        if(p.type === 'תשתית' && !isReadOnly) {
+                            pdfBtn.classList.remove('hidden');
+                        }
+                    }
+                }
+
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    drawer.classList.remove('translate-x-full');
+                });
+            }
+
+            function closeEditDrawer() {
+                const drawer = document.getElementById('editProjectDrawer');
+                const modal = document.getElementById('editProjectModal');
+                
+                drawer.classList.add('translate-x-full');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    editingProjectId = null;
+                }, 300);
+            }
+
+            function saveProjectFromDrawer() {
+                if (isReadOnly) return;
+                
+                const id = document.getElementById('editProjectId').value;
+                const name = document.getElementById('editProjectName').value.trim();
+                const contractor = document.getElementById('editProjectContractor').value.trim();
+                const type = document.getElementById('editProjectType').value;
+                const status = document.getElementById('editProjectStatus').value;
+                const desc = document.getElementById('editProjectDescription').value;
+                
+                if (!name) {
+                    showToast('חובה להזין שם פרויקט', true);
+                    return;
+                }
+                
+                const finalImages = [...currentDrawerImages];
+                const mainImage = finalImages.length > 0 ? finalImages[0] : '';
+
+                if (id) {
+                    const p = appProjects.find(x => String(x.id) === String(id));
+                    if (p) {
+                        p.name = name;
+                        p.contractor = contractor;
+                        p.type = type;
+                        p.status = status;
+                        p.description = desc;
+                        p.image = mainImage;
+                        p.images = finalImages;
+                    }
+                } else {
+                    const newProj = {
+                        id: generateId(),
+                        name: name,
+                        contractor: contractor,
+                        type: type,
+                        status: status,
+                        description: desc,
+                        image: mainImage,
+                        images: finalImages
+                    };
+                    appProjects.unshift(newProj);
+                }
+
+                saveData();
+                updateUIForDate();
+                closeEditDrawer();
+                showToast('הפרויקט נשמר בהצלחה!');
+            }
+
+
+            function renderPresentation() {
+                const data = getProcessedData();
+                const container = document.getElementById('presentation-container');
+                if (!container) return;
+                
+                container.innerHTML = '';
+                const mName = getMonthName(currentViewDate);
+                let pageNum = 1;
+
+                if(appProjects.length === 0 || data.total === 0) {
+                    container.innerHTML = `<div class="text-center py-20"><h2 class="text-2xl font-bold text-slate-500">אין אתרים פעילים בחודש ${mName} להצגה.</h2></div>`;
+                    return;
+                }
+
+                // Page 1: Cover
+                container.innerHTML += `
+                    <div class="slide-page bg-white shadow-xl flex flex-col relative shrink-0 border border-slate-200">
+                        <div class="absolute top-0 right-0 w-80 h-80 bg-blue-800 rounded-bl-[100%] opacity-90"></div>
+                        <div class="absolute bottom-0 left-0 w-96 h-96 bg-slate-100 rounded-tr-[100%] opacity-50"></div>
+                        <div class="flex-1 flex flex-col justify-center px-32 z-10">
+                            <h2 class="text-xl font-bold text-blue-600 mb-4 tracking-normal">מערכת בקרת תצורה ופיקוח</h2>
+                            <h1 class="text-6xl font-black text-slate-900 border-r-[16px] border-blue-600 pr-8 mb-8 leading-normal">דו"ח סטטוס פיקוח <br/> <span class="text-4xl text-slate-600 font-bold">${escapeHTML(currentRegionName)}</span></h1>
+                            <p class="text-2xl font-medium text-slate-500">תמונת מצב - ${mName}</p>
+                        </div>
+                    </div>
+                `;
+                pageNum++;
+
+                // Page 2: Infographics / Numbers
+                container.innerHTML += `
+                    <div class="slide-page bg-white shadow-xl flex flex-col relative shrink-0 border border-slate-200 p-10 px-16">
+                        <header class="mb-8 border-b-4 border-blue-600 pb-2">
+                            <h2 class="text-3xl font-extrabold text-blue-900">תמונת מצב חודשית: ${escapeHTML(currentRegionName)}</h2>
+                        </header>
+                        <main class="flex-1 flex flex-col gap-8 justify-center pb-6">
+                            
+                            <div class="flex gap-8 w-full">
+                                <div class="flex-1 border-2 border-orange-200 rounded-3xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm bg-orange-50 h-[120px]">
+                                    <div class="absolute top-0 w-full h-4 bg-orange-400"></div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="text-5xl text-orange-400"><i class="fas fa-road"></i></div>
+                                        <div class="text-5xl font-black text-slate-800 leading-none">${data.infraProjects.length}</div>
+                                    </div>
+                                    <div class="text-lg font-bold text-slate-600 mt-2 text-center px-4">תשתיות</div>
+                                </div>
+                                <div class="flex-1 border-2 border-blue-200 rounded-3xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-sm bg-blue-50 h-[120px]">
+                                    <div class="absolute top-0 w-full h-4 bg-blue-500"></div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="text-5xl text-blue-500"><i class="fas fa-building"></i></div>
+                                        <div class="text-5xl font-black text-slate-800 leading-none">${data.buildingTotal}</div>
+                                    </div>
+                                    <div class="text-lg font-bold text-slate-600 mt-2 text-center px-4">אתרי בניה</div>
+                                </div>
+                            </div>
+                            
+                                <div class="flex flex-row items-center justify-between w-full mb-6 px-1">
+                                    <div class="flex-1 bg-white border-2 border-slate-200 rounded-2xl p-2 shadow-sm mx-1 h-[100px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-home text-slate-300 text-xl mb-1"></i>
+                                        <div class="text-2xl font-black text-slate-700 mb-0.5 leading-none">${data.stage1}</div>
+                                        <div class="text-xs font-bold text-slate-500 text-center leading-none">טרום הריסה</div>
+                                    </div>
+                                    <div class="text-slate-300 text-lg"><i class="fas fa-chevron-left"></i></div>
+                                    
+                                    <div class="flex-1 bg-slate-50 border-2 border-slate-300 rounded-2xl p-2 shadow-sm mx-1 h-[100px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-truck-pickup text-slate-400 text-xl mb-1"></i>
+                                        <div class="text-2xl font-black text-slate-700 mb-0.5 leading-none">${data.stage2}</div>
+                                        <div class="text-xs font-bold text-slate-600 text-center leading-none">הריסה/חדש</div>
+                                    </div>
+                                    <div class="text-slate-300 text-lg"><i class="fas fa-chevron-left"></i></div>
+                                    
+                                    <div class="flex-1 bg-purple-50 border-2 border-purple-200 rounded-2xl p-2 shadow-sm mx-1 h-[100px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-layer-group text-purple-300 text-xl mb-1"></i>
+                                        <div class="text-2xl font-black text-purple-700 mb-0.5 leading-none">${data.stage3}</div>
+                                        <div class="text-xs font-bold text-purple-600 text-center leading-none">דיפון</div>
+                                    </div>
+                                    <div class="text-slate-300 text-lg"><i class="fas fa-chevron-left"></i></div>
+                                    
+                                    <div class="flex-1 bg-blue-50 border-2 border-blue-300 rounded-2xl p-2 shadow-md mx-1 h-[100px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-building text-blue-400 text-xl mb-1"></i>
+                                        <div class="text-2xl font-black text-blue-700 mb-0.5 leading-none">${data.stage4}</div>
+                                        <div class="text-xs font-black text-blue-600 text-center leading-none">בניה</div>
+                                    </div>
+                                    <div class="text-slate-300 text-lg"><i class="fas fa-chevron-left"></i></div>
+                                    
+                                    <div class="flex-1 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-2 shadow-sm mx-1 h-[100px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-paint-roller text-emerald-300 text-xl mb-1"></i>
+                                        <div class="text-2xl font-black text-emerald-700 mb-0.5 leading-none">${data.stage5}</div>
+                                        <div class="text-xs font-bold text-emerald-600 text-center leading-none">גמרים</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex w-full items-center justify-center gap-6 px-2 pt-6 border-t border-slate-200 mt-2">
+                                    <div class="w-[150px] bg-red-50 border-2 border-red-200 rounded-2xl p-2 shadow-sm h-[110px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-stop-circle text-red-300 text-2xl mb-1"></i>
+                                        <div class="text-3xl font-black text-red-700 mb-0.5 leading-none">${data.stagePaused}</div>
+                                        <div class="text-sm font-bold text-red-600 text-center leading-none">הפסקת עבודה</div>
+                                    </div>
+                                    <div class="w-[150px] bg-[#F0FDF4] border-2 border-[#86EFAC] rounded-2xl p-2 shadow-sm h-[110px] flex flex-col items-center justify-center">
+                                        <i class="fas fa-key text-[#86EFAC] text-2xl mb-1"></i>
+                                        <div class="text-3xl font-black text-[#15803D] mb-0.5 leading-none">${data.stageFinishing}</div>
+                                        <div class="text-sm font-bold text-[#166534] text-center leading-none">לקראת מסירה</div>
+                                    </div>
+                                </div>
+                        </main>
+                        <footer class="text-slate-300 text-sm mt-auto self-start">עמוד ${pageNum++}</footer>
+                    </div>
+                `;
+
+                // Page 3: Density
+                let densityGridHtml = '';
+                if (data.highDensity.length > 0) {
+                    data.highDensity.forEach((street, idx) => {
+                        if(idx > 3) return; // limit to 4 to fit in 2x2 grid nicely
+                        const theme = CARD_THEMES[idx % CARD_THEMES.length];
+                        
+                        const pillsHtml = street.sites.map(site => {
+                            const iconHtml = `<i class="fas fa-hammer ${theme.iconColor}"></i>`;
+                            return `<div class="bg-white border ${theme.pillBorder} text-slate-700 rounded-full px-3 py-1.5 flex items-center gap-2 font-bold text-xs shadow-sm"><span>${escapeHTML(site.name)}</span> ${iconHtml}</div>`;
+                        }).join('');
+
+                        densityGridHtml += `
+                            <div class="${theme.bg} border-${theme.pillBorder.split('-')[1]}-200 border-2 rounded-3xl p-5 flex flex-col gap-4 shadow-sm h-full">
+                                <div class="flex justify-between items-start border-b ${theme.pillBorder} pb-3">
+                                    <div>
+                                        <div class="text-2xl font-black ${theme.textTitle}">רחוב ${escapeHTML(street.name)}</div>
+                                    </div>
+                                    <div class="text-5xl font-black ${theme.textNum}">${street.count}</div>
+                                </div>
+                                <div class="flex flex-wrap gap-2 overflow-y-auto">${pillsHtml}</div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    densityGridHtml = `<div class="text-center text-slate-400 w-full col-span-2 py-20 text-3xl font-bold">לא נמצאו רחובות צפופים</div>`;
+                }
+
+                container.innerHTML += `
+                    <div class="slide-page bg-white shadow-xl flex flex-col relative shrink-0 border border-slate-200 p-10 px-16">
+                       <header class="mb-8 border-b-4 border-blue-600 pb-2">
+                         <h2 class="text-3xl font-extrabold text-blue-900">מוקדי חיכוך: רחובות וצירים מרכזיים עמוסים</h2>
+                       </header>
+                       <main class="flex-1 grid grid-cols-2 grid-rows-2 gap-6 pb-6">
+                           ${densityGridHtml}
+                       </main>
+                       <footer class="text-slate-300 text-sm mt-auto self-start">עמוד ${pageNum++}</footer>
+                    </div>
+                `;
+
+                // Infra Slides
+                if (data.infraProjects.length > 0) {
+                    const infraSlidesData = [];
+                    let currentSlide = [];
+                    let currentWeight = 0;
+                    const MAX_WEIGHT = 12;
+
+                    data.infraProjects.forEach(p => {
+                        // Use main image (or first image from array)
+                        const pImg = (p.images && p.images.length > 0) ? p.images[0] : (p.image || '');
+                        const projectWeight = pImg ? 12 : 3; 
+                        
+                        if (currentWeight + projectWeight > MAX_WEIGHT && currentSlide.length > 0) {
+                            infraSlidesData.push(currentSlide);
+                            currentSlide = [];
+                            currentWeight = 0;
+                        }
+                        currentSlide.push({...p, resolvedImage: pImg});
+                        currentWeight += projectWeight;
+                    });
+                    if (currentSlide.length > 0) infraSlidesData.push(currentSlide);
+
+                    infraSlidesData.forEach((chunk, index) => {
+                        let infraRows = chunk.map(p => `
+                            <tr class="border-slate-200 ${p.resolvedImage ? 'border-b-0' : 'border-b'}">
+                                <td class="py-4 px-4 align-top w-[30%]">
+                                    <div class="font-bold text-slate-900 text-lg">${escapeHTML(p.name)}</div>
+                                    <div class="text-slate-600 font-medium text-sm mt-1">${p.contractor ? `(${escapeHTML(p.contractor)})` : ''}</div>
+                                </td>
+                                <td class="py-4 px-4 align-top text-slate-700 text-base w-[50%] leading-relaxed">${escapeHTML(p.description) || ''}</td>
+                                <td class="py-4 px-4 align-top text-center font-bold text-base text-slate-800 w-[20%]">
+                                    <span class="inline-block px-3 py-1.5 rounded-full ${p.status === 'הפסקת עבודה' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-orange-50 text-orange-800 border border-orange-200'}">${escapeHTML(p.status)}</span>
+                                </td>
+                            </tr>
+                            ${p.resolvedImage ? `
+                            <tr class="bg-white">
+                                <td colspan="3" class="px-8 pb-8 pt-2">
+                                    <div class="w-full h-[450px] bg-slate-50/80 rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden p-3 shadow-inner">
+                                        <img src="${p.resolvedImage}" class="w-full h-full object-cover drop-shadow-md rounded-lg">
+                                    </div>
+                                </td>
+                            </tr>
+                            ` : ''}
+                        `).join('');
+
+                        let headerHtml = index === 0 ? 
+                            `<header class="mb-6 border-b-4 border-blue-600 pb-2 flex justify-between items-end">
+                                <h2 class="text-3xl font-extrabold text-blue-900">סקירת עבודות תשתית</h2>
+                             </header>` : 
+                            `<div class="mt-8"></div>`;
+
+                        container.innerHTML += `
+                            <div class="slide-page bg-white shadow-xl flex flex-col relative shrink-0 border border-slate-200 p-10 px-16">
+                                ${headerHtml}
+                                <main class="flex-1">
+                                    <table class="w-full text-right border-collapse">
+                                        <thead>
+                                            <tr class="border-b-2 border-blue-800 text-blue-900 bg-slate-50">
+                                                <th class="py-3 px-4 font-bold text-lg w-[30%]">פרויקט / קבלן</th>
+                                                <th class="py-3 px-4 font-bold text-lg w-[50%]">מהות העבודה (תמצית הנדסית)</th>
+                                                <th class="py-3 px-4 font-bold text-lg text-center w-[20%]">סטטוס</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${infraRows}</tbody>
+                                    </table>
+                                </main>
+                                <footer class="text-slate-300 text-sm mt-auto self-start pt-4">עמוד ${pageNum++}</footer>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Gallery Slides
+                const activeProjectsList = appProjects.filter(p => p && p.status !== 'הסתיים ונמסר');
+                // Projects that have at least one image
+                const buildingWithImages = activeProjectsList.filter(p => p && p.type === 'בניה' && ((p.images && p.images.length > 0) || p.image));
+                
+                if (buildingWithImages.length > 0) {
+                    const GALLERY_CHUNK = 4;
+                    const galleryChunks = [];
+                    for (let i = 0; i < buildingWithImages.length; i += GALLERY_CHUNK) {
+                        galleryChunks.push(buildingWithImages.slice(i, i + GALLERY_CHUNK));
+                    }
+
+                    galleryChunks.forEach((chunk, index) => {
+                        let gridHtml = chunk.map(p => {
+                            const pImg = (p.images && p.images.length > 0) ? p.images[0] : (p.image || '');
+                            return `
+                            <div class="flex flex-col bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-sm h-full">
+                                <div class="flex-1 w-full rounded-xl overflow-hidden relative bg-white flex items-center justify-center border border-slate-100 p-2">
+                                    <img src="${pImg}" class="w-full h-full object-cover drop-shadow-sm rounded-lg">
+                                </div>
+                                <div class="mt-3 text-center shrink-0">
+                                    <h4 class="font-extrabold text-xl text-slate-800 truncate px-2">${escapeHTML(p.name)}</h4>
+                                </div>
+                            </div>
+                            `;
+                        }).join('');
+
+                        container.innerHTML += `
+                            <div class="slide-page bg-white shadow-xl flex flex-col relative shrink-0 border border-slate-200 p-10 px-16">
+                                <header class="mb-6 border-b-4 border-blue-600 pb-2 flex justify-between items-end shrink-0">
+                                    <h2 class="text-3xl font-extrabold text-blue-900">תיעוד מהשטח - פרויקטי בניה ${galleryChunks.length > 1 ? `(${index + 1}/${galleryChunks.length})` : ''}</h2>
+                                </header>
+                                <main class="flex-1 grid grid-cols-2 grid-rows-2 gap-6 min-h-0 pb-2">
+                                    ${gridHtml}
+                                </main>
+                                <footer class="text-slate-300 text-sm mt-auto shrink-0 self-start">עמוד ${pageNum++}</footer>
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+
+            function deleteProject(id) {
+                if (isReadOnly) return;
+                projectIdToDelete = String(id);
+                document.getElementById('deleteModal').classList.remove('hidden');
+            }
+            
+            function executeDeleteProject() {
+                if(projectIdToDelete !== null && !isReadOnly) {
+                    appProjects = appProjects.filter(p => String(p.id) !== String(projectIdToDelete));
+                    saveData();
+                    updateUIForDate();
+                    showToast("הפרויקט נמחק מחודש זה!");
+                    closeEditDrawer();
+                }
+                document.getElementById('deleteModal').classList.add('hidden');
+                projectIdToDelete = null;
+            }
+
+            function executeClearAll() {
+                if (isReadOnly) return;
+                appProjects = [];
+                saveData();
+                document.getElementById('clearAllModal').classList.add('hidden');
+                updateUIForDate();
+                showToast("כל הנתונים אופסו עבור חודש זה!");
+            }
+
+            // --- Backup Logic (Clean Export) ---
+            function executeFullBackup() {
+                try {
+                    const backupData = {};
+                    for(let i=0; i<localStorage.length; i++) {
+                        let key = localStorage.key(i);
+                        if(key.startsWith(BASE_STORAGE_KEY)) {
+                            // Strip images from JSON before exporting to prevent huge files
+                            let rawData = localStorage.getItem(key);
+                            try {
+                                let parsed = JSON.parse(rawData);
+                                if (Array.isArray(parsed)) {
+                                    // FIX: Do not stringify here. Let the final stringify handle it.
+                                    backupData[key] = parsed.map(p => ({ ...p, image: '', images: [] }));
+                                } else {
+                                    backupData[key] = parsed; 
+                                }
+                            } catch(e) {
+                                backupData[key] = rawData;
+                            }
+                        } else if (key === 'projecthq_region_v16' || key === 'projecthq_theme') {
+                            backupData[key] = localStorage.getItem(key);
+                        }
+                    }
+                    
+                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    const d = new Date();
+                    link.download = `ProjectHQ_Clean_Backup_${d.getFullYear()}_${d.getMonth()+1}_${d.getDate()}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('גיבוי מערכת נקי מתמונות ירד בהצלחה!');
+                } catch(e) {
+                    showToast('שגיאה ביצירת גיבוי.', true);
+                }
+            }
+            
+            function handleBackupUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (!data || typeof data !== 'object') throw new Error('Invalid format');
+                        
+                        // Clear existing project data to avoid conflicts
+                        for(let i=localStorage.length-1; i>=0; i--) {
+                            let key = localStorage.key(i);
+                            if(key.startsWith(BASE_STORAGE_KEY)) localStorage.removeItem(key);
+                        }
+                        
+                        // Set new data with Smart Migration 
+                        Object.keys(data).forEach(k => {
+                            let value = data[k];
+                            
+                            // SMART FIX: Some old backups were "double stringified".
+                            // If value is a string that looks like an array/object, we decode it.
+                            if (typeof value === 'string') {
+                                try {
+                                    let tempParsed = JSON.parse(value);
+                                    if (typeof tempParsed === 'object') {
+                                        value = JSON.stringify(tempParsed); // Clean single-level string
+                                    }
+                                } catch(e) { /* Leave value as string */ }
+                            } else if (typeof value === 'object') {
+                                value = JSON.stringify(value);
+                            }
+                            
+                            if (k.includes('projecthq_')) {
+                                let match = k.match(/(\d{4}_\d{2})/);
+                                if (match) {
+                                    let newKey = BASE_STORAGE_KEY + match[1];
+                                    localStorage.setItem(newKey, value);
+                                } else {
+                                    localStorage.setItem(k, value);
+                                }
+                            } else {
+                                localStorage.setItem(k, value);
+                            }
+                        });
+                        
+                        showToast('המערכת שוחזרה בהצלחה! מרענן...');
+                        setTimeout(() => window.location.reload(), 1500);
+                        
+                    } catch(err) {
+                        showToast('קובץ גיבוי לא תקין או פגום.', true);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            }
+
+            // --- Events ---
+            function bindEvents() {
+                
+                // Toggle PDF upload button based on project type
+                document.getElementById('editProjectType').addEventListener('change', function(e) {
+                    if (isReadOnly) return;
+                    const pdfBtn = document.getElementById('btn-extract-pdf');
+                    if(e.target.value === 'תשתית') {
+                        pdfBtn.classList.remove('hidden');
+                    } else {
+                        pdfBtn.classList.add('hidden');
+                    }
+                });
+                
+                // Trigger PDF file dialog
+                document.getElementById('btn-extract-pdf').addEventListener('click', () => {
+                    document.getElementById('pdfFileInput').click();
+                });
+                
+                // Trigger Image file dialog directly
+                document.getElementById('btn-upload-image').addEventListener('click', () => {
+                    if (isReadOnly) return;
+                    document.getElementById('projectImageInput').click();
+                });
+                
+                // Handle PDF parsing and text extraction - SMART EXTRACTION (Paragraph based)
+                document.getElementById('pdfFileInput').addEventListener('change', async function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    if (file.size > 10 * 1024 * 1024) {
+                        showToast('הקובץ גדול מ-10 מגה. אנא העלה קובץ קל יותר.', true);
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    showToast('מפענח את הקובץ... מחפש מהות עבודה', false);
+                    
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        
+                        const maxPages = Math.min(pdf.numPages, 5);
+                        let fullText = '';
+                        
+                        for (let i = 1; i <= maxPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            
+                            let lastY = -1;
+                            let pageText = '';
+                            content.items.forEach(item => {
+                                if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
+                                    pageText += '\n'; 
+                                } else if (lastY !== -1) {
+                                    pageText += ' ';
+                                }
+                                pageText += item.str;
+                                lastY = item.transform[5];
+                            });
+                            fullText += pageText + '\n\n';
+                        }
+                        
+                        let searchTxt = fullText;
+                        const keywords = ['מהות העבודה', 'תכולת העבודה', 'מהות עבודה', 'תכולת עבודה', 'תיאור העבודה', 'תכולת הפרויקט'];
+                        let foundMatch = '';
+                        
+                        for (let kw of keywords) {
+                            let idx = searchTxt.indexOf(kw);
+                            if (idx !== -1) {
+                                let startIdx = idx + kw.length;
+                                if (searchTxt[startIdx] === ':' || searchTxt[startIdx] === '-') startIdx++;
+                                
+                                let textAfter = searchTxt.substring(startIdx);
+                                let endIdx = textAfter.search(/\n\s*\n|לוחות זמנים|תקציב|סעיף \d|שלבי ביצוע/);
+                                if (endIdx === -1) endIdx = Math.min(textAfter.length, 1200); 
+                                
+                                let cleanMatch = textAfter.substring(0, endIdx).replace(/\s+/g, ' ').trim();
+                                
+                                if (cleanMatch.length > 800) {
+                                    let truncated = cleanMatch.substring(0, 800);
+                                    let lastDot = truncated.lastIndexOf('.');
+                                    if (lastDot > 0) {
+                                        cleanMatch = truncated.substring(0, lastDot + 1);
+                                    } else {
+                                        cleanMatch = truncated + '...';
+                                    }
+                                }
+                                
+                                foundMatch = cleanMatch;
+                                break;
+                            }
+                        }
+                        
+                        if (foundMatch) {
+                            document.getElementById('editProjectDescription').value = foundMatch;
+                            showToast('הטקסט חולץ בהצלחה מתוך מסמך ה-PDF!');
+                        } else {
+                            showToast('הקובץ נסרק אך לא נמצאו בו מילות מפתח הקשורות למהות העבודה.', true);
+                        }
+                    } catch (err) {
+                        console.error("PDF Parsing Error: ", err);
+                        showToast('שגיאה בפענוח ה-PDF. ייתכן שהמסמך סרוק כתמונה ולא כטקסט חי.', true);
+                    }
+                    
+                    e.target.value = '';
+                });
+
+                function handleImageFileSelection(file) {
+                    if (!file.type.startsWith('image/')) {
+                        showToast('המערכת מקבלת רק קבצי תמונות.', true);
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imgEl = document.getElementById('cropper-image');
+                        imgEl.src = event.target.result;
+                        document.getElementById('cropModal').classList.remove('hidden');
+                        
+                        if (cropperInstance) cropperInstance.destroy();
+                        
+                        cropperInstance = new Cropper(imgEl, {
+                            aspectRatio: 16 / 9, viewMode: 1, dragMode: 'move', 
+                            autoCropArea: 1, restore: false, guides: true,
+                            center: true, highlight: false, cropBoxMovable: true,
+                            cropBoxResizable: true, toggleDragModeOnDblclick: false,
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                document.getElementById('projectImageInput').addEventListener('change', function(e) {
+                    if (isReadOnly) return;
+                    const file = e.target.files[0];
+                    if (file) handleImageFileSelection(file);
+                    e.target.value = ''; // reset
+                });
+
+
+                document.addEventListener('click', function(e) {
+                    const target = e.target;
+                    
+                    // -- SIDEBAR NAVIGATION --
+                    const tabBtn = target.closest('[data-action="switch-tab"]');
+                    if (tabBtn) {
+                        const targetTab = tabBtn.dataset.target;
+                        if (targetTab === 'editor') {
+                            document.getElementById('filterSearch').value = '';
+                            document.getElementById('filterType').value = 'all';
+                            currentFilters.search = '';
+                            currentFilters.type = 'all';
+                            currentFilters.statuses = [];
+                            document.querySelectorAll('.status-cb').forEach(cb => cb.checked = false);
+                            document.getElementById('statusFilterLabel').innerText = 'כל הסטטוסים';
+                            workspaceViewLevel = 1;
+                            selectedCategoryIndex = -1;
+                        }
+                        switchTab(targetTab);
+                        return;
+                    }
+
+                    // -- INNER REPORTS NAVIGATION --
+                    const innerReportBtn = target.closest('.inner-report-btn');
+                    if (innerReportBtn) {
+                        switchInternalReportTab(innerReportBtn.dataset.target);
+                        return;
+                    }
+
+                    if (target.closest('#btn-add-project')) { openEditDrawer(); return; }
+                    if (target.closest('.btn-trigger-pdf')) { downloadPDF(); return; }
+                    
+                    // Settings
+                    if (target.closest('#btn-open-settings')) { document.getElementById('settingsModal').classList.remove('hidden'); return; }
+                    if (target.closest('#btn-close-settings')) { document.getElementById('settingsModal').classList.add('hidden'); return; }
+                    if (target.closest('#btn-modal-export')) { exportDataToExcel(); return; }
+                    if (target.closest('#btn-modal-clear')) { 
+                        if (isReadOnly) return showToast('פתיחת עריכה נדרשת כדי למחוק את החודש.', true);
+                        document.getElementById('settingsModal').classList.add('hidden');
+                        document.getElementById('clearAllModal').classList.remove('hidden'); 
+                        return; 
+                    }
+                    if (target.closest('#btn-cancel-clear')) { document.getElementById('clearAllModal').classList.add('hidden'); return; }
+                    if (target.closest('#btn-execute-clear')) { executeClearAll(); return; }
+
+                    if (target.closest('#btn-modal-upload')) { 
+                        if (isReadOnly) return showToast('פתיחת עריכה נדרשת לטעינת קובץ.', true);
+                        const ei = document.getElementById('excelInput');
+                        if(ei) ei.click(); 
+                        return; 
+                    }
+                    if (target.closest('#btn-modal-dl-template')) { downloadExcelTemplate(); return; }
+                    if (target.closest('#btn-modal-backup')) { executeFullBackup(); return; }
+                    if (target.closest('#btn-modal-restore')) { document.getElementById('backupInput').click(); return; }
+
+                    // Close Edit Drawer
+                    if (target.closest('#btn-close-edit')) { closeEditDrawer(); return; }
+                    
+                    // Save Project Drawer
+                    if (target.closest('#btn-save-project')) { saveProjectFromDrawer(); return; }
+
+                    // Delete handling
+                    const delBtn = target.closest('[data-action="delete"]') || target.closest('#btn-delete-project-modal');
+                    if (delBtn) {
+                        const pid = delBtn.dataset.projectId || document.getElementById('editProjectId').value;
+                        if(pid) deleteProject(pid); 
+                        return; 
+                    }
+                    if (target.closest('#btn-cancel-delete')) { document.getElementById('deleteModal').classList.add('hidden'); projectIdToDelete=null; return; }
+                    if (target.closest('#btn-execute-delete')) { executeDeleteProject(); return; }
+
+                    // Navigation / Lock
+                    if (target.closest('#btn-prev-month')) { changeMonth(-1); return; }
+                    if (target.closest('#btn-next-month')) { changeMonth(1); return; }
+                    if (target.closest('#btn-unlock-history')) { document.getElementById('unlockModal').classList.remove('hidden'); return; }
+                    if (target.closest('#btn-cancel-unlock')) { document.getElementById('unlockModal').classList.add('hidden'); return; }
+                    if (target.closest('#btn-execute-unlock')) { unlockCurrentMonth(); return; }
+
+                    // Carry Over
+                    if (target.closest('#btn-cancel-carryover')) { cancelCarryOver(); return; }
+                    if (target.closest('#btn-execute-carryover')) { executeCarryOver(); return; }
+
+                    // Sidebar
+                    if (target.closest('#btn-toggle-sidebar')) {
+                        const sidebar = document.getElementById('main-sidebar');
+                        sidebar.classList.toggle('sidebar-collapsed');
+                        sidebar.classList.toggle('sidebar-expanded');
+                        setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 300);
+                        return;
+                    }
+
+                    // Compare Month Dropdown Toggle
+                    if (target.closest('#btn-compare-month')) {
+                        const menu = document.getElementById('compareMonthMenu');
+                        if (menu) menu.classList.toggle('show');
+                        return;
+                    }
+                    if (!target.closest('#compareMonthFilterContainer')) {
+                        const menu = document.getElementById('compareMonthMenu');
+                        if (menu && menu.classList.contains('show')) menu.classList.remove('show');
+                    }
+
+                    // Status Dropdown toggle
+                    if (target.closest('#btn-status-filter')) {
+                        const menu = document.getElementById('statusFilterMenu');
+                        menu.classList.toggle('show');
+                        return;
+                    }
+                    if (!target.closest('#statusFilterContainer')) {
+                        const menu = document.getElementById('statusFilterMenu');
+                        if (menu && menu.classList.contains('show')) menu.classList.remove('show');
+                    }
+
+                    // Lightbox
+                    if (target.closest('#btnCloseLightbox')) {
+                        document.getElementById('lightboxModal').classList.add('hidden');
+                        document.getElementById('lightboxImage').src = '';
+                        return;
+                    }
+
+                    // Crop Modal
+                    if (target.closest('#btn-cancel-crop')) {
+                        document.getElementById('cropModal').classList.add('hidden');
+                        if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+                        document.getElementById('projectImageInput').value = '';
+                        return;
+                    }
+                    if (target.closest('#btn-save-crop')) {
+                        if (!cropperInstance) return;
+                        const canvas = cropperInstance.getCroppedCanvas({
+                            maxWidth: 800, maxHeight: 800,
+                            imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
+                        });
+                        const compressedDataUrl = canvas.toDataURL('image/webp', 0.7);
+                        
+                        currentDrawerImages.push(compressedDataUrl);
+                        renderDrawerGallery();
+                        
+                        document.getElementById('cropModal').classList.add('hidden');
+                        cropperInstance.destroy(); cropperInstance = null;
+                        document.getElementById('projectImageInput').value = '';
+                        return;
+                    }
+                });
+
+                document.addEventListener('change', function(e) {
+                    const target = e.target;
+                    
+                    if (target.id === 'excelInput') { handleExcelUpload(e); return; }
+                    if (target.id === 'backupInput') { handleBackupUpload(e); return; }
+                    if (target.id === 'filterType') { updateFilters(); return; }
+                    
+                    if (target.id === 'theme-toggle') {
+                        if (target.checked) {
+                            document.documentElement.classList.add('dark');
+                            localStorage.setItem('projecthq_theme', 'dark');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            localStorage.setItem('projecthq_theme', 'light');
+                        }
+                        if(window.reportsChartInstance) renderReports(); 
+                        return;
+                    }
+                    
+                    if (target.id === 'regionSelect') {
+                        currentRegionName = target.value;
+                        localStorage.setItem('projecthq_region_v16', currentRegionName);
+                        updateUIForDate();
+                        return;
+                    }
+                });
+
+                document.addEventListener('input', function(e) {
+                    const target = e.target;
+                    if (target.id === 'filterSearch') { updateFilters(); return; }
+                });
+            }
+
+            // --- Initialization ---
+            function init() {
+                if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
+
+                try {
+                    // Theme init
+                    if (localStorage.getItem('projecthq_theme') === 'dark') {
+                        document.documentElement.classList.add('dark');
+                        const toggle = document.getElementById('theme-toggle');
+                        if(toggle) toggle.checked = true;
+                    }
+
+                    const regionInput = document.getElementById('regionSelect');
+                    if(regionInput && currentRegionName) regionInput.value = currentRegionName;
+
+                    initStatusMultiSelect();
+                    bindEvents();
+                    updateStorageIndicator();
+                    
+                    loadDataForCurrentView();
+                    checkAndCarryOver();
+                    
+                    const pContainer = document.getElementById('presentation-container');
+                    if (pContainer) {
+                        const resizeObserver = new ResizeObserver((entries) => {
+                            window.requestAnimationFrame(() => {
+                                if (!document.getElementById('preview-tab').classList.contains('hidden')) adjustPreviewScale();
+                            });
+                        });
+                        resizeObserver.observe(pContainer);
+                    }
+                } catch(e) { console.error("Initialization failed", e); }
+            }
+
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+            else init();
+
+        })();
+    </script>
+</body>
+</html>
